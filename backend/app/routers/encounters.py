@@ -11,20 +11,31 @@ separate, append-only mechanism (M5).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..deps import get_current_provider, get_session
-from ..models import Encounter, EncounterStatus, Patient, Provider
+from ..config import Settings
+from ..deps import get_current_provider, get_session, get_settings_dep
+from ..models import Encounter, EncounterStatus, Patient, Provider, Template
 from ..schemas import (
     CreateEncounterRequest,
     EncounterDetail,
     EncounterListItem,
     EncounterPatch,
+    GenerateRequest,
     PatientOut,
 )
+from ..services.generation import run_generation_stream
 from ..services.patients import resolve_or_create_patient
+
+
+def _sse(event: dict) -> str:
+    # One SSE message per event; JSON payload avoids newline-encoding issues.
+    return f"data: {json.dumps(event)}\n\n"
 
 router = APIRouter(prefix="/api/encounters", tags=["encounters"])
 
@@ -164,3 +175,81 @@ async def autosave_encounter(
     detail = await _to_detail(db, enc)
     await db.commit()
     return detail
+
+
+@router.post("/{encounter_id}/generate")
+async def generate_note(
+    encounter_id: int,
+    body: GenerateRequest,
+    request: Request,
+    provider: Provider = Depends(get_current_provider),
+    db: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings_dep),
+) -> StreamingResponse:
+    """Stream a SOAP note over SSE via the manual function-calling loop.
+
+    Ownership and the FRESH template body are resolved here (request session);
+    the long-running generation opens its own session for tool calls so it isn't
+    tied to the request-scoped session's lifetime.
+    """
+    enc = await _get_owned(db, encounter_id, provider)
+
+    transcript = body.transcript if body.transcript is not None else (enc.transcript or "")
+    template_id = body.template_id if body.template_id is not None else enc.template_id
+
+    # Template body is read FRESH at generation time (not cached on the client),
+    # so an admin's edit takes effect on the very next generation.
+    template_prompt: str | None = None
+    if template_id is not None:
+        tmpl = (
+            await db.execute(select(Template).where(Template.id == template_id))
+        ).scalar_one_or_none()
+        template_prompt = tmpl.system_prompt if tmpl else None
+
+    patient_id = enc.patient_id
+    prior_count = (
+        await db.execute(
+            select(func.count(Encounter.id)).where(
+                Encounter.patient_id == patient_id,
+                Encounter.id != enc.id,
+                Encounter.status == EncounterStatus.finalized,
+            )
+        )
+    ).scalar_one()
+
+    client = request.app.state.genai_client
+    sessionmaker = request.app.state.sessionmaker
+
+    async def event_stream():
+        # Badge first: whether history will be injected (server-side fact).
+        yield _sse({"type": "meta", "prior_encounter_count": int(prior_count)})
+        if client is None:
+            yield _sse(
+                {
+                    "type": "error",
+                    "message": "gemini_not_configured",
+                    "detail": "GEMINI_API_KEY is not set on the server.",
+                }
+            )
+            return
+        async for event in run_generation_stream(
+            client,
+            sessionmaker,
+            patient_id=patient_id,
+            transcript=transcript,
+            template_prompt=template_prompt,
+            settings=settings,
+        ):
+            yield _sse(event)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            # Belt-and-suspenders with nginx `proxy_buffering off` — disables
+            # buffering at proxies that honor this hint, so deltas flush live.
+            "X-Accel-Buffering": "no",
+        },
+    )

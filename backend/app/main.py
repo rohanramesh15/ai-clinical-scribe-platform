@@ -43,6 +43,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.sessionmaker = sessionmaker
     app.state.gemini_api_key = secrets.gemini_api_key
 
+    # Build the Gemini client once (or None if the key isn't configured yet —
+    # the generate endpoint surfaces a clear error rather than crashing boot).
+    app.state.genai_client = None
+    if secrets.gemini_api_key:
+        from .llm import build_genai_client
+
+        app.state.genai_client = build_genai_client(secrets.gemini_api_key)
+
     try:
         yield
     finally:

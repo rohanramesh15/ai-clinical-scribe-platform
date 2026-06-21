@@ -58,6 +58,12 @@ class EncounterListItem(BaseModel):
     updated_at: datetime
 
 
+class GenerateRequest(BaseModel):
+    """Generation uses the latest transcript/template (may not be autosaved yet)."""
+    transcript: str | None = None
+    template_id: int | None = None
+
+
 class EncounterDetail(BaseModel):
     id: int
     public_id: str

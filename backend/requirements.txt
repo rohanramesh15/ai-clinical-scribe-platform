@@ -18,7 +18,7 @@ email-validator==2.2.0
 boto3==1.35.90
 
 # ---- AI ----
-google-genai==1.2.0
+google-genai==2.9.0
 
 # ---- Auth ----
 argon2-cffi==23.1.0
