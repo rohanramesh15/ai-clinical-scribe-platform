@@ -76,6 +76,26 @@ async def test_search_icd10_tool_is_grounded(sessionmaker):
 
 
 @pytest.mark.asyncio
+async def test_dispatch_unknown_function_is_structured(sessionmaker):
+    async with sessionmaker() as db:
+        r = await gen._dispatch("does_not_exist", {}, db, 1)
+    assert r["status"] == "error"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_degrades_on_tool_failure(sessionmaker, monkeypatch):
+    # A tool blowing up must degrade to a structured 'unavailable', never raise
+    # (that would crash the SSE stream).
+    async def boom(*_a, **_k):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(gen, "_search_icd10", boom)
+    async with sessionmaker() as db:
+        r = await gen._dispatch("search_icd10", {"query_text": "x"}, db, 1)
+    assert r["status"] == "unavailable"
+
+
+@pytest.mark.asyncio
 async def test_loop_dispatches_tool_then_streams_text(sessionmaker):
     from google.genai import types
 

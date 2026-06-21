@@ -377,29 +377,26 @@ export default function Workspace() {
                 </div>
               )}
               {status === "idle" && !hasContent && (
-                <div className="flex h-full items-center justify-center text-center">
-                  <div className="text-muted-foreground">
-                    <FileText className="mx-auto h-8 w-8 opacity-40" />
-                    <p className="mt-2 text-sm">Enter a transcript and generate a note,</p>
-                    <p className="text-xs">or type the SOAP sections directly.</p>
-                  </div>
+                <div className="mb-3 flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+                  <FileText className="h-4 w-4 opacity-50" />
+                  Enter a transcript and generate a note, or type the SOAP sections directly below.
                 </div>
               )}
-              {(hasContent || status === "streaming" || status === "done") && (
-                <div className="grid grid-cols-2 gap-3">
-                  {KEYS.map((k) => (
-                    <SoapSection
-                      key={k}
-                      title={TITLES[k]}
-                      value={sections[k]}
-                      onChange={(v) => setSections((s) => ({ ...s, [k]: v }))}
-                      editable={editable}
-                      streaming={status === "streaming"}
-                      missing={status === "interrupted" && !sections[k].trim()}
-                    />
-                  ))}
-                </div>
-              )}
+              {/* Panes always render (except insufficient / malformed) so a
+                  provider can type directly or review streamed content. */}
+              <div className="grid grid-cols-2 gap-3">
+                {KEYS.map((k) => (
+                  <SoapSection
+                    key={k}
+                    title={TITLES[k]}
+                    value={sections[k]}
+                    onChange={(v) => setSections((s) => ({ ...s, [k]: v }))}
+                    editable={editable}
+                    streaming={status === "streaming"}
+                    missing={status === "interrupted" && !sections[k].trim()}
+                  />
+                ))}
+              </div>
             </>
           )}
         </div>
