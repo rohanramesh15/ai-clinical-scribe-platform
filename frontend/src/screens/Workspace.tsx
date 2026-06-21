@@ -116,6 +116,18 @@ export default function Workspace() {
     return () => { active = false; };
   }, [encId, handleAuthError]);
 
+  // --- Live template list ----------------------------------------------------
+  // The dropdown is re-fetched every time it opens, so an admin's create /
+  // rename / archive is reflected without a page refresh. (The active template's
+  // *body* is already read fresh server-side at generation time.)
+  const loadTemplates = useCallback(async () => {
+    try {
+      setTemplates(await api.listTemplates());
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) handleAuthError(e);
+    }
+  }, [handleAuthError]);
+
   // --- Debounced autosave (transcript + working_note) to RDS -----------------
   const persist = useCallback(async () => {
     try {
@@ -318,6 +330,7 @@ export default function Workspace() {
             <Select
               value={templateId ? String(templateId) : undefined}
               onValueChange={(v) => setTemplateId(Number(v))}
+              onOpenChange={(open) => { if (open) void loadTemplates(); }}
               disabled={status === "streaming"}
             >
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select an encounter type…" /></SelectTrigger>
