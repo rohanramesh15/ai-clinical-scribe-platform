@@ -133,3 +133,11 @@ class VersionListItem(BaseModel):
     created_at: datetime
     diagnosis_count: int
 
+
+# --- ICD-10 search widget (M6) ---
+
+class IcdSearchResult(BaseModel):
+    code: str
+    description: str
+    score: float  # 1 - cosine_distance (1.0 = closest)
+
