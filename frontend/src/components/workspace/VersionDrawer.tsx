@@ -5,8 +5,8 @@ import type { VersionDetail, VersionListItem } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { diffWords } from "@/lib/diff";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +14,7 @@ const SECTION_KEYS = ["subjective", "objective", "assessment", "plan"] as const;
 
 function DiffText({ before, after }: { before: string; after: string }) {
   return (
-    <p className="whitespace-pre-wrap text-xs leading-relaxed">
+    <p className="whitespace-pre-wrap text-sm leading-relaxed">
       {diffWords(before, after).map((part, i) =>
         part.added ? (
           <span key={i} className="rounded-sm bg-success/15 text-[hsl(var(--success))]">{part.value}</span>
@@ -47,14 +47,6 @@ export function VersionDrawer({ encounterId, open, onOpenChange, refreshKey, cur
   const [diffOn, setDiffOn] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    setSelected(null);
-    setDiffOn(false);
-    setPrev(null);
-    api.listVersions(encounterId).then(setList).catch(() => setList([]));
-  }, [open, encounterId, refreshKey]);
-
   async function view(no: number) {
     setLoadingDetail(true);
     setDiffOn(false);
@@ -66,6 +58,21 @@ export function VersionDrawer({ encounterId, open, onOpenChange, refreshKey, cur
     }
   }
 
+  useEffect(() => {
+    if (!open) return;
+    setSelected(null);
+    setDiffOn(false);
+    setPrev(null);
+    api.listVersions(encounterId)
+      .then((vs) => {
+        setList(vs);
+        // Default to the latest version (the list is ordered newest-first).
+        if (vs.length > 0) view(vs[0].version_no);
+      })
+      .catch(() => setList([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, encounterId, refreshKey]);
+
   async function toggleDiff() {
     if (!selected) return;
     if (diffOn) { setDiffOn(false); return; }
@@ -76,15 +83,15 @@ export function VersionDrawer({ encounterId, open, onOpenChange, refreshKey, cur
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
-        <SheetHeader className="border-b border-border px-4 py-3">
-          <SheetTitle className="text-sm">Version history</SheetTitle>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[80vh] max-w-4xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="border-b border-border px-4 py-3 text-left">
+          <DialogTitle className="text-sm">Version history</DialogTitle>
+        </DialogHeader>
 
         <div className="flex min-h-0 flex-1">
           {/* version list */}
-          <div className="w-44 shrink-0 overflow-y-auto border-r border-border">
+          <div className="w-48 shrink-0 overflow-y-auto border-r border-border">
             {list === null && (
               <div className="flex justify-center py-6">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -114,9 +121,6 @@ export function VersionDrawer({ encounterId, open, onOpenChange, refreshKey, cur
                       <Clock className="h-2.5 w-2.5" />
                       {fmt(v.created_at)}
                     </div>
-                    <div className="truncate font-mono text-[10px] text-muted-foreground">
-                      {v.created_by_email}
-                    </div>
                   </button>
                 </li>
               ))}
@@ -130,7 +134,7 @@ export function VersionDrawer({ encounterId, open, onOpenChange, refreshKey, cur
               <p className="text-xs text-muted-foreground">Select a version to view.</p>
             )}
             {selected && (
-              <div className="space-y-3">
+              <div className="space-y-6">
                 {selected.version_no > 1 && (
                   <Button
                     variant={diffOn ? "default" : "outline"}
@@ -144,41 +148,23 @@ export function VersionDrawer({ encounterId, open, onOpenChange, refreshKey, cur
                 )}
                 {SECTION_KEYS.map((k) => (
                   <div key={k}>
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       {k}
                     </div>
                     {diffOn && prev ? (
                       <DiffText before={prev[k]} after={selected[k]} />
                     ) : (
-                      <p className="whitespace-pre-wrap text-xs leading-relaxed">
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
                         {selected[k] || <span className="text-muted-foreground">—</span>}
                       </p>
                     )}
                   </div>
                 ))}
-                {selected.diagnoses.length > 0 && (
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Diagnoses
-                    </div>
-                    <ul className="mt-1 space-y-1">
-                      {selected.diagnoses.map((d) => (
-                        <li key={d.code} className="flex gap-2 text-xs">
-                          <span className="w-20 font-mono font-semibold">{d.code}</span>
-                          <span className="flex-1">{d.description}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                <Button variant="outline" size="sm" className="mt-2" onClick={() => onOpenChange(false)}>
-                  Close
-                </Button>
               </div>
             )}
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

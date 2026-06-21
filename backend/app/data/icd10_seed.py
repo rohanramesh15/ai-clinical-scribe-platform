@@ -1,10 +1,13 @@
 """A curated subset of real ICD-10-CM codes (300+) for the grounded code search.
 
-Sourced from the public ICD-10-CM tabular list (FY2025-era codes). This is a
-representative slice across primary care, urgent care, orthopedics, cardiology,
-GI, endocrine, behavioral health, derm, neuro, ENT, GU, and common injuries —
-enough to make semantic search meaningful without an external API (a spec
-requirement). Each entry is (code, description); the seed embeds the description.
+Every code and description was verified verbatim against the official US
+ICD-10-CM set via the NLM Clinical Tables API (clinicaltables.nlm.nih.gov,
+maintained by the U.S. National Library of Medicine, reflecting CMS/CDC-NCHS),
+FY2025, on 2026-06-21. This is a representative slice across primary care, urgent
+care, orthopedics, cardiology, GI, endocrine, behavioral health, derm, neuro,
+ENT, GU, and common injuries — enough to make semantic search meaningful without
+an external API (a spec requirement). Each entry is (code, description); the seed
+embeds the description.
 """
 
 ICD10_CODES: list[tuple[str, str]] = [
@@ -76,7 +79,7 @@ ICD10_CODES: list[tuple[str, str]] = [
     ("J03.90", "Acute tonsillitis, unspecified"),
     ("J04.0", "Acute laryngitis"),
     ("J06.9", "Acute upper respiratory infection, unspecified"),
-    ("J11.1", "Influenza with other respiratory manifestations, virus not identified"),
+    ("J11.1", "Influenza due to unidentified influenza virus with other respiratory manifestations"),
     ("J18.9", "Pneumonia, unspecified organism"),
     ("J20.9", "Acute bronchitis, unspecified"),
     ("J21.9", "Acute bronchiolitis, unspecified"),
@@ -96,7 +99,7 @@ ICD10_CODES: list[tuple[str, str]] = [
     ("J45.909", "Unspecified asthma, uncomplicated"),
     ("J90", "Pleural effusion, not elsewhere classified"),
     ("J96.00", "Acute respiratory failure, unspecified whether with hypoxia or hypercapnia"),
-    ("J96.90", "Respiratory failure, unspecified"),
+    ("J96.90", "Respiratory failure, unspecified, unspecified whether with hypoxia or hypercapnia"),
     ("J98.01", "Acute bronchospasm"),
 
     # --- Cardiovascular & lipids (I, E78) ---
@@ -125,18 +128,18 @@ ICD10_CODES: list[tuple[str, str]] = [
     ("E78.5", "Hyperlipidemia, unspecified"),
 
     # --- Gastrointestinal (K) ---
-    ("K20.9", "Esophagitis, unspecified"),
-    ("K21.0", "Gastro-esophageal reflux disease with esophagitis"),
+    ("K20.90", "Esophagitis, unspecified without bleeding"),
+    ("K21.00", "Gastro-esophageal reflux disease with esophagitis, without bleeding"),
     ("K21.9", "Gastro-esophageal reflux disease without esophagitis"),
-    ("K25.9", "Gastric ulcer, unspecified, without hemorrhage or perforation"),
-    ("K26.9", "Duodenal ulcer, unspecified, without hemorrhage or perforation"),
+    ("K25.9", "Gastric ulcer, unspecified as acute or chronic, without hemorrhage or perforation"),
+    ("K26.9", "Duodenal ulcer, unspecified as acute or chronic, without hemorrhage or perforation"),
     ("K29.70", "Gastritis, unspecified, without bleeding"),
     ("K30", "Functional dyspepsia"),
     ("K35.80", "Unspecified acute appendicitis"),
-    ("K40.90", "Unilateral inguinal hernia, without obstruction or gangrene"),
+    ("K40.90", "Unilateral inguinal hernia, without obstruction or gangrene, not specified as recurrent"),
     ("K52.9", "Noninfective gastroenteritis and colitis, unspecified"),
     ("K57.30", "Diverticulosis of large intestine without perforation or abscess without bleeding"),
-    ("K58.9", "Irritable bowel syndrome without diarrhea"),
+    ("K58.9", "Irritable bowel syndrome, unspecified"),
     ("K59.00", "Constipation, unspecified"),
     ("K59.1", "Functional diarrhea"),
     ("K63.5", "Polyp of colon"),
@@ -146,7 +149,7 @@ ICD10_CODES: list[tuple[str, str]] = [
     ("K80.20", "Calculus of gallbladder without cholecystitis without obstruction"),
     ("K81.0", "Acute cholecystitis"),
     ("K92.2", "Gastrointestinal hemorrhage, unspecified"),
-    ("A04.7", "Enterocolitis due to Clostridium difficile"),
+    ("A04.72", "Enterocolitis due to Clostridium difficile, not specified as recurrent"),
     ("A09", "Infectious gastroenteritis and colitis, unspecified"),
 
     # --- Musculoskeletal & orthopedic (M) ---
@@ -165,7 +168,7 @@ ICD10_CODES: list[tuple[str, str]] = [
     ("M19.90", "Unspecified osteoarthritis, unspecified site"),
     ("M47.812", "Spondylosis without myelopathy or radiculopathy, cervical region"),
     ("M47.816", "Spondylosis without myelopathy or radiculopathy, lumbar region"),
-    ("M48.06", "Spinal stenosis, lumbar region"),
+    ("M48.061", "Spinal stenosis, lumbar region without neurogenic claudication"),
     ("M51.26", "Other intervertebral disc displacement, lumbar region"),
     ("M54.12", "Radiculopathy, cervical region"),
     ("M54.16", "Radiculopathy, lumbar region"),
@@ -176,16 +179,16 @@ ICD10_CODES: list[tuple[str, str]] = [
     ("M54.9", "Dorsalgia, unspecified"),
     ("M62.830", "Muscle spasm of back"),
     ("M62.838", "Other muscle spasm"),
-    ("M65.9", "Synovitis and tenosynovitis, unspecified"),
+    ("M65.90", "Unspecified synovitis and tenosynovitis, unspecified site"),
     ("M70.50", "Other bursitis of knee, unspecified knee"),
     ("M72.2", "Plantar fascial fibromatosis"),
-    ("M75.100", "Unspecified rotator cuff tear or rupture of unspecified shoulder, not traumatic"),
+    ("M75.100", "Unspecified rotator cuff tear or rupture of unspecified shoulder, not specified as traumatic"),
     ("M75.30", "Calcific tendinitis of unspecified shoulder"),
     ("M75.40", "Impingement syndrome of unspecified shoulder"),
     ("M76.60", "Achilles tendinitis, unspecified leg"),
     ("M77.00", "Medial epicondylitis, unspecified elbow"),
     ("M77.10", "Lateral epicondylitis, unspecified elbow"),
-    ("M79.1", "Myalgia"),
+    ("M79.10", "Myalgia, unspecified site"),
     ("M79.601", "Pain in right arm"),
     ("M79.602", "Pain in left arm"),
     ("M79.604", "Pain in right leg"),
@@ -200,7 +203,7 @@ ICD10_CODES: list[tuple[str, str]] = [
     ("S13.4XXA", "Sprain of ligaments of cervical spine, initial encounter"),
     ("S16.1XXA", "Strain of muscle, fascia and tendon at neck level, initial encounter"),
     ("S39.012A", "Strain of muscle, fascia and tendon of lower back, initial encounter"),
-    ("S43.401A", "Sprain of unspecified part of right shoulder joint, initial encounter"),
+    ("S43.401A", "Unspecified sprain of right shoulder joint, initial encounter"),
     ("S52.501A", "Unspecified fracture of the lower end of right radius, initial encounter for closed fracture"),
     ("S72.001A", "Fracture of unspecified part of neck of right femur, initial encounter for closed fracture"),
     ("S82.001A", "Unspecified fracture of right patella, initial encounter for closed fracture"),
@@ -212,7 +215,7 @@ ICD10_CODES: list[tuple[str, str]] = [
 
     # --- Endocrine & metabolic (E) ---
     ("E03.9", "Hypothyroidism, unspecified"),
-    ("E05.90", "Thyrotoxicosis, unspecified, without thyrotoxic crisis or storm"),
+    ("E05.90", "Thyrotoxicosis, unspecified without thyrotoxic crisis or storm"),
     ("E10.9", "Type 1 diabetes mellitus without complications"),
     ("E11.9", "Type 2 diabetes mellitus without complications"),
     ("E11.22", "Type 2 diabetes mellitus with diabetic chronic kidney disease"),
@@ -227,7 +230,7 @@ ICD10_CODES: list[tuple[str, str]] = [
     ("E86.0", "Dehydration"),
     ("E87.1", "Hypo-osmolality and hyponatremia"),
     ("E87.6", "Hypokalemia"),
-    ("E88.81", "Metabolic syndrome"),
+    ("E88.810", "Metabolic syndrome"),
 
     # --- Genitourinary & renal (N) ---
     ("N17.9", "Acute kidney failure, unspecified"),
@@ -259,7 +262,7 @@ ICD10_CODES: list[tuple[str, str]] = [
     ("F32.9", "Major depressive disorder, single episode, unspecified"),
     ("F33.1", "Major depressive disorder, recurrent, moderate"),
     ("F40.10", "Social phobia, unspecified"),
-    ("F41.0", "Panic disorder without agoraphobia"),
+    ("F41.0", "Panic disorder [episodic paroxysmal anxiety]"),
     ("F41.1", "Generalized anxiety disorder"),
     ("F41.9", "Anxiety disorder, unspecified"),
     ("F42.9", "Obsessive-compulsive disorder, unspecified"),
@@ -271,8 +274,8 @@ ICD10_CODES: list[tuple[str, str]] = [
     ("G47.33", "Obstructive sleep apnea (adult) (pediatric)"),
 
     # --- Neurology (G) ---
-    ("G20", "Parkinson's disease"),
-    ("G35", "Multiple sclerosis"),
+    ("G20.A1", "Parkinson's disease without dyskinesia, without mention of fluctuations"),
+    ("G35.D", "Multiple sclerosis, unspecified"),
     ("G40.909", "Epilepsy, unspecified, not intractable, without status epilepticus"),
     ("G43.709", "Chronic migraine without aura, not intractable, without status migrainosus"),
     ("G43.909", "Migraine, unspecified, not intractable, without status migrainosus"),
@@ -322,7 +325,7 @@ ICD10_CODES: list[tuple[str, str]] = [
     ("B02.9", "Zoster without complications"),
     ("B34.9", "Viral infection, unspecified"),
     ("B37.0", "Candidal stomatitis"),
-    ("B37.3", "Candidiasis of vulva and vagina"),
+    ("B37.31", "Acute candidiasis of vulva and vagina"),
     ("U07.1", "COVID-19"),
 
     # --- Hematology (D) ---

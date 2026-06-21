@@ -5,6 +5,7 @@ import { TopBar } from "@/components/TopBar";
 import { Toaster } from "@/components/ui/sonner";
 import Login from "@/screens/Login";
 import EncounterList from "@/screens/EncounterList";
+import Intake from "@/screens/Intake";
 import Workspace from "@/screens/Workspace";
 import AdminDashboard from "@/screens/AdminDashboard";
 import AdminEncounterDetail from "@/screens/AdminEncounterDetail";
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route element={<Protected />}>
           <Route path="/" element={<RoleHome />} />
+          <Route path="/encounters/:id/intake" element={<Intake />} />
           <Route path="/encounters/:id" element={<Workspace />} />
           <Route
             path="/admin"

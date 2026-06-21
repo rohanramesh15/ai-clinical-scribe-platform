@@ -60,7 +60,7 @@ preamble, no markdown, no section headings of your own):
 <objective findings and vitals>
 {SEC_CLOSE['objective']}
 {SEC_OPEN['assessment']}
-<assessment narrative; reference diagnoses by their descriptions>
+<assessment narrative; state each diagnosis with its grounded ICD-10 code inline in parentheses, e.g. "Acute bronchitis, unspecified (J20.9)"; include one diagnosis-with-code at minimum, and additional ones when clinically warranted>
 {SEC_CLOSE['assessment']}
 {SEC_OPEN['plan']}
 <plan>
@@ -69,8 +69,14 @@ preamble, no markdown, no section headings of your own):
 <one grounded ICD-10 code per line as: CODE|DESCRIPTION|primary_or_secondary>
 {CODES_CLOSE}
 
-The Assessment must contain at least one diagnosis matched to the clinical \
-content, and its code must appear in the CODES block, grounded via search_icd10.
+The Assessment MUST name at least one diagnosis with its grounded ICD-10 code \
+inline in parentheses, e.g. "Acute bronchitis, unspecified (J20.9)". When the \
+encounter supports more than one diagnosis — comorbidities, multiple active \
+problems, or relevant secondary conditions — include EACH as its own diagnosis \
+with its own inline code rather than collapsing them into one; there is no upper \
+limit. Every code you write MUST come from search_icd10 results and also appear \
+in the CODES block below (one code per line) — never invent or recall codes from \
+memory.
 
 ENCOUNTER-TYPE GUIDANCE (shapes tone, depth, and emphasis):
 """
