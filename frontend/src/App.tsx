@@ -1,29 +1,72 @@
-import { useEffect, useState } from "react";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Loader2 } from "lucide-react";
+import { useAuth } from "@/auth/AuthContext";
+import { TopBar } from "@/components/TopBar";
+import { Toaster } from "@/components/ui/sonner";
+import Login from "@/screens/Login";
+import EncounterList from "@/screens/EncounterList";
+import Workspace from "@/screens/Workspace";
+import AdminDashboard from "@/screens/AdminDashboard";
+import AdminEncounterDetail from "@/screens/AdminEncounterDetail";
 
-// M0 placeholder screen: proves the toolchain builds and the SPA can reach the
-// backend through the same-origin /api proxy. Replaced by the real router +
-// screens (Login, Encounter list, Note workspace, Admin) in M8.
-export default function App() {
-  const [health, setHealth] = useState<string>("checking…");
-
-  useEffect(() => {
-    fetch("/api/health")
-      .then((r) => r.json())
-      .then((d) => setHealth(d.status ?? "unknown"))
-      .catch(() => setHealth("unreachable"));
-  }, []);
-
+function FullSpinner() {
   return (
     <div className="flex h-full items-center justify-center">
-      <div className="border border-clinical-border bg-clinical-surface px-8 py-6">
-        <h1 className="text-lg font-semibold text-clinical-ink">
-          Clinical Scribe
-        </h1>
-        <p className="mt-1 text-clinical-muted">
-          Scaffold online. API health:{" "}
-          <span className="font-mono text-clinical-primary">{health}</span>
-        </p>
-      </div>
+      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
     </div>
+  );
+}
+
+function Protected() {
+  const { status } = useAuth();
+  if (status === "loading") return <FullSpinner />;
+  if (status === "anon") return <Navigate to="/login" replace />;
+  return (
+    <div className="flex min-h-full flex-col">
+      <TopBar />
+      <Outlet />
+    </div>
+  );
+}
+
+function RoleHome() {
+  const { provider } = useAuth();
+  return provider?.role === "admin" ? <Navigate to="/admin" replace /> : <EncounterList />;
+}
+
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { provider } = useAuth();
+  return provider?.role === "admin" ? <>{children}</> : <Navigate to="/" replace />;
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route element={<Protected />}>
+          <Route path="/" element={<RoleHome />} />
+          <Route path="/encounters/:id" element={<Workspace />} />
+          <Route
+            path="/admin"
+            element={
+              <RequireAdmin>
+                <AdminDashboard />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/encounters/:id"
+            element={
+              <RequireAdmin>
+                <AdminEncounterDetail />
+              </RequireAdmin>
+            }
+          />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <Toaster position="top-right" />
+    </BrowserRouter>
   );
 }
