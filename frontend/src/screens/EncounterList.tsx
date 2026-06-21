@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FilePlus2, Loader2 } from "lucide-react";
+import { FilePlus2, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError, api } from "@/api/client";
 import type { EncounterListItem } from "@/api/types";
@@ -29,6 +29,8 @@ export default function EncounterList() {
   const [last, setLast] = useState("");
   const [dob, setDob] = useState("");
   const [busy, setBusy] = useState(false);
+  const [toDelete, setToDelete] = useState<EncounterListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api.listEncounters().then(setRows).catch((e) => {
@@ -42,12 +44,36 @@ export default function EncounterList() {
     setBusy(true);
     try {
       const enc = await api.createEncounter(first.trim(), last.trim(), dob);
-      navigate(`/encounters/${enc.id}`);
+      navigate(`/encounters/${enc.id}/intake`);
     } catch (err) {
       if (err instanceof ApiError) handleAuthError(err);
       toast.error("Could not start encounter.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!toDelete) return;
+    setDeleting(true);
+    try {
+      await api.deleteEncounter(toDelete.id);
+      setRows((prev) => (prev ? prev.filter((x) => x.id !== toDelete.id) : prev));
+      toast.success("Encounter permanently deleted.");
+      setToDelete(null);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        // The encounter is already gone (stale list row) — drop it quietly
+        // rather than surfacing an error.
+        setRows((prev) => (prev ? prev.filter((x) => x.id !== toDelete.id) : prev));
+        toast.message("That encounter was already removed.");
+        setToDelete(null);
+      } else {
+        if (err instanceof ApiError) handleAuthError(err);
+        toast.error("Could not delete encounter.");
+      }
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -89,7 +115,7 @@ export default function EncounterList() {
               <DialogFooter>
                 <Button type="submit" disabled={busy} className="gap-1.5">
                   {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Open workspace
+                  Continue
                 </Button>
               </DialogFooter>
             </form>
@@ -105,19 +131,20 @@ export default function EncounterList() {
               <TableHead>DOB</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Last updated</TableHead>
+              <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows === null && (
               <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 </TableCell>
               </TableRow>
             )}
             {rows?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
                   No encounters yet. Start one with “New encounter”.
                 </TableCell>
               </TableRow>
@@ -126,7 +153,15 @@ export default function EncounterList() {
               <TableRow
                 key={r.id}
                 className="cursor-pointer"
-                onClick={() => navigate(`/encounters/${r.id}`)}
+                onClick={() =>
+                  navigate(
+                    // A fresh draft (no generated note yet) resumes at intake;
+                    // anything with content opens directly in the workspace.
+                    r.status === "draft" && !r.has_working_note
+                      ? `/encounters/${r.id}/intake`
+                      : `/encounters/${r.id}`,
+                  )
+                }
               >
                 <TableCell className="font-medium">{r.patient_name}</TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">{r.patient_dob}</TableCell>
@@ -142,11 +177,44 @@ export default function EncounterList() {
                   )}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">{fmt(r.updated_at)}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="Delete encounter"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); setToDelete(r); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={toDelete !== null} onOpenChange={(o) => { if (!o) setToDelete(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm text-destructive">Delete encounter permanently?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will <span className="font-medium text-foreground">permanently delete</span>
+            {toDelete ? ` ${toDelete.patient_name}'s` : " this"} encounter, including its transcript and
+            every saved note version. This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setToDelete(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" className="gap-1.5" onClick={confirmDelete} disabled={deleting}>
+              {deleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Delete permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

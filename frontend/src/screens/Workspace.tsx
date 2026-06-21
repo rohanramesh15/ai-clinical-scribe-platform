@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  AlertOctagon, AlertTriangle, ArrowLeft, FileText, History, Loader2, Save, Sparkles, UserCheck,
+  AlertOctagon, AlertTriangle, ArrowLeft, ChevronDown, ChevronUp, History, Loader2, Save, Sparkles, UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError, api } from "@/api/client";
@@ -10,16 +10,10 @@ import { parseSoap, streamGeneration, type GenEvent } from "@/api/stream";
 import { useAuth } from "@/auth/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { CodesPanel } from "@/components/workspace/CodesPanel";
-import { IcdSearchPanel } from "@/components/workspace/IcdSearchPanel";
+import { IcdSearchBar } from "@/components/workspace/IcdSearchBar";
 import { ReauthDialog } from "@/components/workspace/ReauthDialog";
 import { SoapSection } from "@/components/workspace/SoapSection";
 import { VersionDrawer } from "@/components/workspace/VersionDrawer";
-import type { TemplateSummary } from "@/api/types";
 
 type GenStatus = "idle" | "streaming" | "done" | "insufficient" | "interrupted" | "error";
 type Sections = { subjective: string; objective: string; assessment: string; plan: string };
@@ -37,10 +31,10 @@ export default function Workspace() {
   const { id } = useParams();
   const encId = Number(id);
   const navigate = useNavigate();
+  const location = useLocation();
   const { handleAuthError } = useAuth();
 
   const [enc, setEnc] = useState<EncounterDetail | null>(null);
-  const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [templateId, setTemplateId] = useState<number | null>(null);
   const [transcript, setTranscript] = useState("");
   const [sections, setSections] = useState<Sections>(EMPTY);
@@ -53,6 +47,7 @@ export default function Workspace() {
   const [priorCount, setPriorCount] = useState<number | null>(null);
   const [redFlags, setRedFlags] = useState<RedFlag[] | null>(null);
   const [scanningFlags, setScanningFlags] = useState(false);
+  const [redFlagsOpen, setRedFlagsOpen] = useState(true);
 
   const [basedOn, setBasedOn] = useState(0);
   const [currentVersionNo, setCurrentVersionNo] = useState<number | null>(null);
@@ -67,15 +62,15 @@ export default function Workspace() {
   const abortRef = useRef<AbortController | null>(null);
   const pendingSave = useRef(false);
   const loaded = useRef(false);
+  const autoGenStarted = useRef(false);
 
-  // --- Load encounter + templates --------------------------------------------
+  // --- Load encounter --------------------------------------------------------
   useEffect(() => {
     let active = true;
-    Promise.all([api.getEncounter(encId), api.listTemplates()])
-      .then(([detail, tmpls]) => {
+    api.getEncounter(encId)
+      .then((detail) => {
         if (!active) return;
         setEnc(detail);
-        setTemplates(tmpls);
         setTemplateId(detail.template_id);
         setTranscript(detail.transcript ?? "");
         setPriorCount(detail.prior_encounter_count);
@@ -84,7 +79,6 @@ export default function Workspace() {
         setBasedOn(detail.current_version_no ?? 0);
 
         if (detail.status === "finalized" && detail.current_version_no) {
-          // Land directly on the saved note (not the draft working_note).
           api.getVersion(encId, detail.current_version_no).then((v) => {
             if (!active) return;
             setSections({ subjective: v.subjective, objective: v.objective, assessment: v.assessment, plan: v.plan });
@@ -96,7 +90,6 @@ export default function Workspace() {
             loaded.current = true;
           });
         } else if (detail.working_note) {
-          // Restore in-progress draft exactly.
           const w = detail.working_note;
           setSections({
             subjective: w.subjective ?? "", objective: w.objective ?? "",
@@ -116,19 +109,7 @@ export default function Workspace() {
     return () => { active = false; };
   }, [encId, handleAuthError]);
 
-  // --- Live template list ----------------------------------------------------
-  // The dropdown is re-fetched every time it opens, so an admin's create /
-  // rename / archive is reflected without a page refresh. (The active template's
-  // *body* is already read fresh server-side at generation time.)
-  const loadTemplates = useCallback(async () => {
-    try {
-      setTemplates(await api.listTemplates());
-    } catch (e) {
-      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) handleAuthError(e);
-    }
-  }, [handleAuthError]);
-
-  // --- Debounced autosave (transcript + working_note) to RDS -----------------
+  // --- Debounced autosave (working_note) to RDS ------------------------------
   const persist = useCallback(async () => {
     try {
       await api.autosave(encId, {
@@ -163,10 +144,7 @@ export default function Workspace() {
       setTool(null);
       const p = parseSoap(rawRef.current);
       if (p.insufficient) { setStatus("insufficient"); return; }
-      if (!p.parsedAny && rawRef.current.trim()) {
-        // Malformed output: show raw text rather than blank panes.
-        setRawFallback(rawRef.current);
-      }
+      if (!p.parsedAny && rawRef.current.trim()) setRawFallback(rawRef.current);
       setStatus("done");
     } else if (e.type === "error") {
       setTool(null);
@@ -176,11 +154,12 @@ export default function Workspace() {
   }, []);
 
   const generate = useCallback(async () => {
-    if (!transcript.trim()) { toast.warning("Enter a transcript or observations first."); return; }
+    if (!transcript.trim()) { toast.warning("This encounter has no transcript — add one first."); return; }
     await persist();
     // Red-flag pre-scan (pioneer): runs in parallel, never blocks generation.
     setRedFlags(null);
     setScanningFlags(true);
+    setRedFlagsOpen(true);
     api.scanRedFlags(encId, transcript)
       .then((r) => setRedFlags(r.flags))
       .catch(() => setRedFlags([]))
@@ -197,6 +176,18 @@ export default function Workspace() {
     }
   }, [encId, transcript, templateId, onEvent, persist]);
 
+  // --- Auto-generate when arriving from the intake page ----------------------
+  useEffect(() => {
+    if (autoGenStarted.current) return;
+    if (!loaded.current) return;
+    if ((location.state as { autoGenerate?: boolean } | null)?.autoGenerate !== true) return;
+    if (!transcript.trim() || status === "streaming") return;
+    autoGenStarted.current = true;
+    // Clear the history-state flag so a refresh doesn't re-generate.
+    window.history.replaceState({ ...window.history.state, usr: null }, "");
+    generate();
+  }, [location.state, transcript, status, generate]);
+
   // --- ICD widget append (-> Assessment + provider_added code) ---------------
   const appendCode = useCallback((r: IcdSearchResult) => {
     setCodes((prev) =>
@@ -206,9 +197,9 @@ export default function Workspace() {
     );
     setSections((s) => ({
       ...s,
-      assessment: s.assessment + (s.assessment && !s.assessment.endsWith("\n") ? "\n" : "") + `${r.code} — ${r.description}`,
+      assessment: s.assessment + (s.assessment && !s.assessment.endsWith("\n") ? "\n" : "") + `${r.description} (${r.code})`,
     }));
-    toast.success(`Added ${r.code}`);
+    toast.success(`Added ${r.code} to Assessment section`);
   }, []);
 
   // --- Save (immutable version) ----------------------------------------------
@@ -263,47 +254,51 @@ export default function Workspace() {
 
   const editable = status !== "streaming";
   const hasContent = KEYS.some((k) => sections[k].trim()) || !!rawFallback;
+  const autoPending = (location.state as { autoGenerate?: boolean } | null)?.autoGenerate === true;
   const patient = enc?.patient;
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      {/* Workspace toolbar */}
-      <div className="flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-2">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="h-7 gap-1 px-2" onClick={() => navigate("/")}>
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">
-                {patient ? `${patient.last_name}, ${patient.first_name}` : "…"}
-              </span>
-              {patient && (
-                <span className="font-mono text-xs text-muted-foreground">DOB {patient.dob}</span>
-              )}
-              <Badge
-                variant="outline"
-                className={encStatus === "finalized" ? "border-success/40 text-success" : "border-warning/40 text-warning"}
-              >
-                {encStatus}
+      {/* Workspace toolbar: patient | ICD-10 search | actions */}
+      <div className="flex items-center gap-4 border-b border-border bg-card px-4 py-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-sm font-semibold">
+              {patient ? `${patient.last_name}, ${patient.first_name}` : "…"}
+            </span>
+            {patient && <span className="shrink-0 font-mono text-xs text-muted-foreground">DOB {patient.dob}</span>}
+            <Badge
+              variant="outline"
+              className={encStatus === "finalized" ? "border-success/40 text-success" : "border-warning/40 text-warning"}
+            >
+              {encStatus}
+            </Badge>
+            {priorCount !== null && priorCount > 0 && (
+              <Badge variant="outline" className="shrink-0 gap-1 border-primary/30 text-primary">
+                <UserCheck className="h-3 w-3" />
+                {priorCount} prior
               </Badge>
-              {priorCount !== null && priorCount > 0 && (
-                <Badge variant="outline" className="gap-1 border-primary/30 text-primary">
-                  <UserCheck className="h-3 w-3" />
-                  {priorCount} prior encounter{priorCount > 1 ? "s" : ""}
-                </Badge>
-              )}
-            </div>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="min-w-0 flex-1">
+          <div className="mx-auto max-w-md">
+            <IcdSearchBar onAppend={appendCode} disabled={status === "streaming"} />
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
           <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setDrawerOpen(true)}>
             <History className="h-3.5 w-3.5" />
             History{currentVersionNo ? ` (v${currentVersionNo})` : ""}
           </Button>
           <Button size="sm" className="h-8 gap-1.5" disabled={saving || status === "streaming" || !hasContent} onClick={doSave}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            Save version
+            Save
+          </Button>
+          <Button variant="outline" size="sm" className="h-8" onClick={() => navigate("/")}>
+            Back to home
           </Button>
         </div>
       </div>
@@ -321,154 +316,109 @@ export default function Workspace() {
         </div>
       )}
 
-      {/* Three-pane: input | SOAP | docked codes+ICD */}
-      <div className="grid min-h-0 flex-1 grid-cols-[340px_1fr_330px] divide-x divide-border">
-        {/* INPUT */}
-        <div className="flex min-h-0 flex-col gap-3 overflow-y-auto p-4">
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Template</label>
-            <Select
-              value={templateId ? String(templateId) : undefined}
-              onValueChange={(v) => setTemplateId(Number(v))}
-              onOpenChange={(open) => { if (open) void loadTemplates(); }}
-              disabled={status === "streaming"}
-            >
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select an encounter type…" /></SelectTrigger>
-              <SelectContent>
-                {templates.map((t) => (
-                  <SelectItem key={t.id} value={String(t.id)} className="text-xs">{t.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex min-h-0 flex-1 flex-col space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Transcript or observations
-            </label>
-            <Textarea
-              value={transcript}
-              onChange={(e) => setTranscript(e.target.value)}
-              placeholder="Paste the encounter transcript or type clinical observations…"
-              className="min-h-[280px] flex-1 resize-none text-xs leading-relaxed"
-              disabled={status === "streaming"}
-            />
-          </div>
-
-          <Button onClick={generate} disabled={status === "streaming"} className="gap-1.5">
-            {status === "streaming" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {status === "streaming" ? "Generating…" : "Generate note"}
-          </Button>
-
-          {status === "streaming" && tool && (
-            <p className="flex items-center gap-1.5 text-xs text-primary">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              {TOOL_LABEL[tool] ?? tool}
-            </p>
-          )}
+      {status === "streaming" && tool && (
+        <div className="flex items-center gap-1.5 border-b border-border bg-primary/5 px-4 py-1.5 text-xs text-primary">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          {TOOL_LABEL[tool] ?? tool}
         </div>
+      )}
 
-        {/* SOAP */}
-        <div className="min-h-0 overflow-y-auto bg-muted/20 p-4">
-          {(scanningFlags || (redFlags && redFlags.length > 0)) && (
-            <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 p-3">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
-                <AlertOctagon className="h-4 w-4" />
+      {/* Body: red flags + four SOAP boxes, centered with side margins */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/20">
+        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-3 p-4">
+        {(scanningFlags || (redFlags && redFlags.length > 0)) && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3">
+            <button
+              type="button"
+              onClick={() => setRedFlagsOpen((o) => !o)}
+              className="flex w-full items-center gap-1.5 text-xs font-semibold text-destructive"
+            >
+              <AlertOctagon className="h-4 w-4 shrink-0" />
+              <span className="flex-1 text-left">
                 {scanningFlags
                   ? "Scanning for clinical red flags…"
                   : `${redFlags!.length} clinical red flag${redFlags!.length > 1 ? "s" : ""} detected — review before finalizing`}
-              </div>
-              {redFlags && redFlags.length > 0 && (
-                <ul className="mt-2 space-y-1">
-                  {redFlags.map((f, i) => (
-                    <li key={i} className="flex gap-2 text-xs">
-                      <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${f.severity === "high" ? "bg-destructive" : "bg-warning"}`} />
-                      <span>
-                        <span className="font-medium">{f.flag}.</span>{" "}
-                        <span className="text-muted-foreground">{f.rationale}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+              </span>
+              {!scanningFlags && redFlags && redFlags.length > 0 && (
+                redFlagsOpen ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />
               )}
-            </div>
-          )}
-          {status === "insufficient" ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="max-w-sm rounded-md border border-warning/40 bg-warning/5 p-6 text-center">
-                <AlertTriangle className="mx-auto h-6 w-6 text-warning" />
-                <h3 className="mt-2 text-sm font-semibold">No clinical content detected</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  The input doesn’t contain clinical observations. Add details and generate again — no note was fabricated.
-                </p>
-              </div>
-            </div>
-          ) : rawFallback ? (
-            <div className="rounded-md border border-warning/40 bg-warning/5 p-4">
-              <p className="mb-2 text-xs font-medium text-warning">
-                Couldn’t split the response into sections — showing the full text, please review.
-              </p>
-              <pre className="whitespace-pre-wrap text-xs leading-relaxed">{rawFallback}</pre>
-            </div>
-          ) : (
-            <>
-              {status === "interrupted" && (
-                <div className="mb-3 flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                  <span className="flex items-center gap-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    Generation interrupted — note is incomplete. {genError}
-                  </span>
-                  <Button size="sm" variant="outline" className="h-6 text-xs" onClick={generate}>Retry</Button>
-                </div>
-              )}
-              {status === "idle" && !hasContent && (
-                <div className="mb-3 flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
-                  <FileText className="h-4 w-4 opacity-50" />
-                  Enter a transcript and generate a note, or type the SOAP sections directly below.
-                </div>
-              )}
-              {/* Panes always render (except insufficient / malformed) so a
-                  provider can type directly or review streamed content. */}
-              <div className="grid grid-cols-2 gap-3">
-                {KEYS.map((k) => (
-                  <SoapSection
-                    key={k}
-                    title={TITLES[k]}
-                    value={sections[k]}
-                    onChange={(v) => setSections((s) => ({ ...s, [k]: v }))}
-                    editable={editable}
-                    streaming={status === "streaming"}
-                    missing={status === "interrupted" && !sections[k].trim()}
-                  />
+            </button>
+            {redFlagsOpen && redFlags && redFlags.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {redFlags.map((f, i) => (
+                  <li key={i} className="flex gap-2 text-xs">
+                    <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${f.severity === "high" ? "bg-destructive" : "bg-warning"}`} />
+                    <span>
+                      <span className="font-medium">{f.flag}.</span>{" "}
+                      <span className="text-muted-foreground">{f.rationale}</span>
+                    </span>
+                  </li>
                 ))}
-              </div>
-            </>
-          )}
-        </div>
+              </ul>
+            )}
+          </div>
+        )}
 
-        {/* DOCKED: codes + ICD search */}
-        <div className="flex min-h-0 flex-col divide-y divide-border overflow-hidden">
-          <div className="flex min-h-0 flex-[3] flex-col overflow-hidden">
-            <div className="border-b border-border bg-muted/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Diagnoses (ICD-10)
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <CodesPanel
-                codes={codes}
-                editable={editable}
-                onTogglePrimary={(code) =>
-                  setCodes((prev) => prev.map((c) => (c.code === code ? { ...c, is_primary: !c.is_primary } : c)))
-                }
-                onRemove={(code) => setCodes((prev) => prev.filter((c) => c.code !== code))}
-              />
+        {status === "insufficient" ? (
+          <div className="flex flex-1 items-center justify-center">
+            <div className="max-w-sm rounded-md border border-warning/40 bg-warning/5 p-6 text-center">
+              <AlertTriangle className="mx-auto h-6 w-6 text-warning" />
+              <h3 className="mt-2 text-sm font-semibold">No clinical content detected</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                The input doesn’t contain clinical observations — no note was fabricated.
+              </p>
+              <Button size="sm" variant="outline" className="mt-3 gap-1.5"
+                onClick={() => navigate(`/encounters/${encId}/intake`)}>
+                <ArrowLeft className="h-3.5 w-3.5" /> Edit transcript
+              </Button>
             </div>
           </div>
-          <div className="flex min-h-0 flex-[4] flex-col overflow-hidden">
-            <div className="border-b border-border bg-muted/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              ICD-10 search
-            </div>
-            <IcdSearchPanel onAppend={appendCode} disabled={status === "streaming"} />
+        ) : rawFallback ? (
+          <div className="rounded-md border border-warning/40 bg-warning/5 p-4">
+            <p className="mb-2 text-xs font-medium text-warning">
+              Couldn’t split the response into sections — showing the full text, please review.
+            </p>
+            <pre className="whitespace-pre-wrap text-xs leading-relaxed">{rawFallback}</pre>
           </div>
+        ) : !hasContent && status !== "streaming" && !autoPending ? (
+          <div className="flex flex-1 items-center justify-center">
+            <div className="max-w-sm rounded-md border border-border bg-card p-6 text-center">
+              <Sparkles className="mx-auto h-6 w-6 text-muted-foreground" />
+              <h3 className="mt-2 text-sm font-semibold">No note yet</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Set the template and transcript, then generate the SOAP note.
+              </p>
+              <Button size="sm" className="mt-3 gap-1.5" onClick={() => navigate(`/encounters/${encId}/intake`)}>
+                <Sparkles className="h-3.5 w-3.5" /> Set up &amp; generate
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {status === "interrupted" && (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                <span className="flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Generation interrupted — note is incomplete. {genError}
+                </span>
+                <Button size="sm" variant="outline" className="h-6 text-xs" onClick={generate}>Retry</Button>
+              </div>
+            )}
+            <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-4">
+              {KEYS.map((k) => (
+                <SoapSection
+                  key={k}
+                  title={TITLES[k]}
+                  value={sections[k]}
+                  onChange={(v) => setSections((s) => ({ ...s, [k]: v }))}
+                  editable={editable}
+                  streaming={status === "streaming"}
+                  missing={status === "interrupted" && !sections[k].trim()}
+                />
+              ))}
+            </div>
+          </>
+        )}
         </div>
       </div>
 

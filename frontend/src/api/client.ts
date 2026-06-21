@@ -71,6 +71,7 @@ export const api = {
   getEncounter: (id: number) => request<EncounterDetail>("GET", `/api/encounters/${id}`),
   autosave: (id: number, patch: { transcript?: string; working_note?: WorkingNote; template_id?: number | null }) =>
     request<EncounterDetail>("PATCH", `/api/encounters/${id}`, patch),
+  deleteEncounter: (id: number) => request<void>("DELETE", `/api/encounters/${id}`),
 
   // versions
   saveVersion: (

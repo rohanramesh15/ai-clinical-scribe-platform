@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
@@ -46,6 +46,7 @@ from ..schemas import (
     VersionDetail,
     VersionListItem,
 )
+from ..services.audit import write_audit
 from ..services.generation import run_generation_stream
 from ..services.patients import resolve_or_create_patient
 from ..services.redflags import scan_red_flags
@@ -239,6 +240,47 @@ async def autosave_encounter(
     detail = await _to_detail(db, enc)
     await db.commit()
     return detail
+
+
+@router.delete("/{encounter_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_encounter(
+    encounter_id: int,
+    provider: Provider = Depends(get_current_provider),
+    db: AsyncSession = Depends(get_session),
+) -> Response:
+    """Permanently delete an owned encounter and all of its note versions.
+
+    There is no ON DELETE CASCADE at the DB level and a circular FK
+    (encounters.current_note_version_id <-> note_versions.encounter_id), so we
+    null the pointer, then delete diagnoses -> versions -> the encounter, all in
+    one transaction. The deletion is audited (irreversible action).
+    """
+    enc = await _get_owned(db, encounter_id, provider)  # isolation + 404
+
+    version_ids = (
+        await db.execute(select(NoteVersion.id).where(NoteVersion.encounter_id == enc.id))
+    ).scalars().all()
+
+    # Break the circular pointer so the versions can be removed first.
+    enc.current_note_version_id = None
+    await db.flush()
+    if version_ids:
+        await db.execute(
+            delete(NoteVersionDiagnosis).where(NoteVersionDiagnosis.note_version_id.in_(version_ids))
+        )
+        await db.execute(delete(NoteVersion).where(NoteVersion.encounter_id == enc.id))
+
+    await write_audit(
+        db,
+        actor_provider_id=provider.id,
+        action="encounter.delete",
+        entity_type="encounter",
+        entity_id=enc.id,
+        extra={"patient_id": enc.patient_id, "versions_deleted": len(version_ids)},
+    )
+    await db.delete(enc)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{encounter_id}/generate")

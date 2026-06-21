@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Activity, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-20 flex h-12 items-center justify-between border-b border-border bg-card px-4">
       <Link to={home} className="flex items-center gap-2">
-        <Activity className="h-4 w-4 text-primary" />
         <span className="text-sm font-semibold tracking-tight">Clinical Scribe</span>
         {provider?.role === "admin" && (
           <Badge variant="outline" className="ml-1 border-primary/30 text-primary">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Plus, UserMinus, UserPlus } from "lucide-react";
+import { Check, Copy, Loader2, Plus, UserMinus, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/api/client";
 import type {
@@ -141,23 +141,43 @@ function ProvidersTab() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"provider" | "admin">("provider");
   const [busy, setBusy] = useState(false);
+  // The one-time temporary password is held here so it can be shown inside the
+  // dialog after creation (it is never retrievable again).
+  const [created, setCreated] = useState<{ email: string; temp_password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   function load() { api.adminProviders().then(setRows); }
   useEffect(load, []);
+
+  function resetDialog() {
+    setOpen(false);
+    setEmail(""); setRole("provider");
+    setCreated(null); setCopied(false);
+  }
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
       const res = await api.adminAddProvider(email.trim(), role);
-      toast.success(`Added ${res.provider.email}`, {
-        description: `Temporary password: ${res.temp_password}`,
-        duration: 15000,
-      });
-      setOpen(false); setEmail(""); setRole("provider"); load();
+      // Reveal the temp password in the dialog instead of a transient toast.
+      setCreated({ email: res.provider.email, temp_password: res.temp_password });
+      setCopied(false);
+      load(); // refresh the roster behind the dialog
     } catch {
       toast.error("Could not add provider (email may already exist).");
     } finally { setBusy(false); }
+  }
+
+  async function copyPassword() {
+    if (!created) return;
+    try {
+      await navigator.clipboard.writeText(created.temp_password);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Couldn’t copy — select the password and copy it manually.");
+    }
   }
 
   async function toggle(p: ProviderRosterItem) {
@@ -171,34 +191,66 @@ function ProvidersTab() {
   return (
     <div className="mt-3">
       <div className="mb-3 flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : resetDialog())}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1.5"><UserPlus className="h-4 w-4" />Add provider</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
-            <DialogHeader><DialogTitle className="text-sm">Add provider</DialogTitle></DialogHeader>
-            <form onSubmit={add} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Email</Label>
-                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <DialogHeader>
+              <DialogTitle className="text-sm">{created ? "Provider created" : "Add provider"}</DialogTitle>
+            </DialogHeader>
+            {created ? (
+              <div className="space-y-3">
+                <div className="rounded-md border border-success/40 bg-success/5 p-3">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-success">
+                    <UserPlus className="h-3.5 w-3.5" />
+                    {created.email}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Share this securely. The temporary password is shown only once and can’t be
+                    retrieved later — the provider should change it on first sign-in.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Temporary password</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 select-all rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-sm tracking-wide">
+                      {created.temp_password}
+                    </code>
+                    <Button type="button" variant="outline" size="sm" className="h-9 shrink-0 gap-1.5" onClick={copyPassword}>
+                      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" onClick={resetDialog}>Done</Button>
+                </DialogFooter>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Role</Label>
-                <Select value={role} onValueChange={(v) => setRole(v as "provider" | "admin")}>
-                  <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="provider" className="text-xs">Provider</SelectItem>
-                    <SelectItem value="admin" className="text-xs">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <p className="text-xs text-muted-foreground">A temporary password is generated and shown once.</p>
-              <DialogFooter>
-                <Button type="submit" disabled={busy} className="gap-1.5">
-                  {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Create
-                </Button>
-              </DialogFooter>
-            </form>
+            ) : (
+              <form onSubmit={add} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Email</Label>
+                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Role</Label>
+                  <Select value={role} onValueChange={(v) => setRole(v as "provider" | "admin")}>
+                    <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="provider" className="text-xs">Provider</SelectItem>
+                      <SelectItem value="admin" className="text-xs">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground">A temporary password is generated and shown once.</p>
+                <DialogFooter>
+                  <Button type="submit" disabled={busy} className="gap-1.5">
+                    {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Create
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
           </DialogContent>
         </Dialog>
       </div>
