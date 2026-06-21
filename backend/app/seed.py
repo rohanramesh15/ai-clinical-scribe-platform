@@ -28,11 +28,12 @@ from .secrets import load_runtime_secrets
 from .security import hash_password
 
 # Demo accounts. Passwords are injected at runtime (env or random), never here.
+# Normal TLD (email-validator rejects reserved domains like .test/.example).
 DEMO_PROVIDERS = [
-    ("dr.reed@clinic.test", Role.provider),
-    ("dr.okafor@clinic.test", Role.provider),
-    ("dr.santos@clinic.test", Role.provider),
-    ("admin@clinic.test", Role.admin),
+    ("dr.reed@northclinic.com", Role.provider),
+    ("dr.okafor@northclinic.com", Role.provider),
+    ("dr.santos@northclinic.com", Role.provider),
+    ("admin@northclinic.com", Role.admin),
 ]
 
 TEMPLATES = [
@@ -172,7 +173,7 @@ async def main() -> None:
         async with sessionmaker() as session:
             async with session.begin():
                 provider_ids = await _seed_providers(session)
-                admin_id = provider_ids["admin@clinic.test"]
+                admin_id = provider_ids["admin@northclinic.com"]
                 await _seed_templates(session, admin_id)
                 await _seed_icd10(session)
         print("Seed complete.")

@@ -12,13 +12,20 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .config import get_settings
 from .db import build_engine, build_sessionmaker
+from .routers import auth as auth_router
 from .secrets import load_runtime_secrets
+
+# Unsafe methods require a matching CSRF token (double-submit cookie). Login is
+# exempt because it establishes the session and is protected by credentials.
+_CSRF_EXEMPT_PATHS = {"/api/auth/login"}
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 @asynccontextmanager
@@ -43,6 +50,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Clinical Scribe API", lifespan=lifespan)
+
+    @app.middleware("http")
+    async def csrf_protect(request: Request, call_next):
+        if request.method in _UNSAFE_METHODS and request.url.path not in _CSRF_EXEMPT_PATHS:
+            settings = request.app.state.settings
+            header_token = request.headers.get("x-csrf-token")
+            cookie_token = request.cookies.get(settings.csrf_cookie_name)
+            if not header_token or not cookie_token or header_token != cookie_token:
+                return JSONResponse(status_code=403, content={"detail": "csrf_failed"})
+        return await call_next(request)
+
+    app.include_router(auth_router.router)
 
     @app.get("/api/health")
     async def health() -> dict[str, str]:
