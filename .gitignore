@@ -42,3 +42,6 @@ crash.log
 .idea/
 .vscode/
 *.swp
+
+# Internal notes (not public)
+ROADMAP.md
