@@ -65,6 +65,20 @@ class GenerateRequest(BaseModel):
     template_id: int | None = None
 
 
+class RedFlagScanRequest(BaseModel):
+    transcript: str = ""
+
+
+class RedFlag(BaseModel):
+    flag: str
+    rationale: str
+    severity: str  # high | moderate
+
+
+class RedFlagScanResponse(BaseModel):
+    flags: list[RedFlag]
+
+
 class EncounterDetail(BaseModel):
     id: int
     public_id: str

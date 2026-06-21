@@ -10,6 +10,7 @@ import type {
   IcdSearchResult,
   MeResponse,
   ProviderRosterItem,
+  RedFlag,
   SaveVersionResponse,
   StagedCode,
   TemplateOut,
@@ -92,6 +93,10 @@ export const api = {
   // icd search
   icdSearch: (q: string, limit = 10) =>
     request<IcdSearchResult[]>("GET", `/api/icd10/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+
+  // red-flag scan (pioneer)
+  scanRedFlags: (id: number, transcript: string) =>
+    request<{ flags: RedFlag[] }>("POST", `/api/encounters/${id}/redflags`, { transcript }),
 
   // templates (provider dropdown)
   listTemplates: () => request<TemplateSummary[]>("GET", "/api/templates"),

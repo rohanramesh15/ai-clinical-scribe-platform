@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Clock, Loader2 } from "lucide-react";
+import { Clock, GitCompare, Loader2 } from "lucide-react";
 import { api } from "@/api/client";
 import type { VersionDetail, VersionListItem } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,26 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
+import { diffWords } from "@/lib/diff";
 import { cn } from "@/lib/utils";
+
+const SECTION_KEYS = ["subjective", "objective", "assessment", "plan"] as const;
+
+function DiffText({ before, after }: { before: string; after: string }) {
+  return (
+    <p className="whitespace-pre-wrap text-xs leading-relaxed">
+      {diffWords(before, after).map((part, i) =>
+        part.added ? (
+          <span key={i} className="rounded-sm bg-success/15 text-[hsl(var(--success))]">{part.value}</span>
+        ) : part.removed ? (
+          <span key={i} className="rounded-sm bg-destructive/10 text-destructive line-through">{part.value}</span>
+        ) : (
+          <span key={i}>{part.value}</span>
+        ),
+      )}
+    </p>
+  );
+}
 
 interface Props {
   encounterId: number;
@@ -24,21 +43,36 @@ function fmt(ts: string) {
 export function VersionDrawer({ encounterId, open, onOpenChange, refreshKey, currentVersionNo }: Props) {
   const [list, setList] = useState<VersionListItem[] | null>(null);
   const [selected, setSelected] = useState<VersionDetail | null>(null);
+  const [prev, setPrev] = useState<VersionDetail | null>(null);
+  const [diffOn, setDiffOn] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setSelected(null);
+    setDiffOn(false);
+    setPrev(null);
     api.listVersions(encounterId).then(setList).catch(() => setList([]));
   }, [open, encounterId, refreshKey]);
 
   async function view(no: number) {
     setLoadingDetail(true);
+    setDiffOn(false);
+    setPrev(null);
     try {
       setSelected(await api.getVersion(encounterId, no));
     } finally {
       setLoadingDetail(false);
     }
+  }
+
+  async function toggleDiff() {
+    if (!selected) return;
+    if (diffOn) { setDiffOn(false); return; }
+    if (!prev && selected.version_no > 1) {
+      setPrev(await api.getVersion(encounterId, selected.version_no - 1));
+    }
+    setDiffOn(true);
   }
 
   return (
@@ -97,14 +131,29 @@ export function VersionDrawer({ encounterId, open, onOpenChange, refreshKey, cur
             )}
             {selected && (
               <div className="space-y-3">
-                {(["subjective", "objective", "assessment", "plan"] as const).map((k) => (
+                {selected.version_no > 1 && (
+                  <Button
+                    variant={diffOn ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 gap-1.5 text-xs"
+                    onClick={toggleDiff}
+                  >
+                    <GitCompare className="h-3.5 w-3.5" />
+                    {diffOn ? `Showing changes vs v${selected.version_no - 1}` : `Show changes vs v${selected.version_no - 1}`}
+                  </Button>
+                )}
+                {SECTION_KEYS.map((k) => (
                   <div key={k}>
                     <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       {k}
                     </div>
-                    <p className="whitespace-pre-wrap text-xs leading-relaxed">
-                      {selected[k] || <span className="text-muted-foreground">—</span>}
-                    </p>
+                    {diffOn && prev ? (
+                      <DiffText before={prev[k]} after={selected[k]} />
+                    ) : (
+                      <p className="whitespace-pre-wrap text-xs leading-relaxed">
+                        {selected[k] || <span className="text-muted-foreground">—</span>}
+                      </p>
+                    )}
                   </div>
                 ))}
                 {selected.diagnoses.length > 0 && (

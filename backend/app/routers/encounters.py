@@ -38,6 +38,9 @@ from ..schemas import (
     EncounterPatch,
     GenerateRequest,
     PatientOut,
+    RedFlag,
+    RedFlagScanRequest,
+    RedFlagScanResponse,
     SaveVersionRequest,
     SaveVersionResponse,
     VersionDetail,
@@ -45,6 +48,7 @@ from ..schemas import (
 )
 from ..services.generation import run_generation_stream
 from ..services.patients import resolve_or_create_patient
+from ..services.redflags import scan_red_flags
 from ..services.versions import StaleEditError, save_version
 
 
@@ -313,6 +317,21 @@ async def generate_note(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/{encounter_id}/redflags", response_model=RedFlagScanResponse)
+async def scan_encounter_red_flags(
+    encounter_id: int,
+    body: RedFlagScanRequest,
+    request: Request,
+    provider: Provider = Depends(get_current_provider),
+    db: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings_dep),
+) -> RedFlagScanResponse:
+    enc = await _get_owned(db, encounter_id, provider)
+    transcript = body.transcript or enc.transcript or ""
+    flags = await scan_red_flags(request.app.state.genai_client, transcript, settings)
+    return RedFlagScanResponse(flags=[RedFlag(**f) for f in flags])
 
 
 @router.post("/{encounter_id}/versions", response_model=SaveVersionResponse, status_code=201)

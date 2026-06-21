@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  AlertTriangle, ArrowLeft, FileText, History, Loader2, Save, Sparkles, UserCheck,
+  AlertOctagon, AlertTriangle, ArrowLeft, FileText, History, Loader2, Save, Sparkles, UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError, api } from "@/api/client";
-import type { EncounterDetail, IcdSearchResult, StagedCode } from "@/api/types";
+import type { EncounterDetail, IcdSearchResult, RedFlag, StagedCode } from "@/api/types";
 import { parseSoap, streamGeneration, type GenEvent } from "@/api/stream";
 import { useAuth } from "@/auth/AuthContext";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +51,8 @@ export default function Workspace() {
   const [tool, setTool] = useState<string | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
   const [priorCount, setPriorCount] = useState<number | null>(null);
+  const [redFlags, setRedFlags] = useState<RedFlag[] | null>(null);
+  const [scanningFlags, setScanningFlags] = useState(false);
 
   const [basedOn, setBasedOn] = useState(0);
   const [currentVersionNo, setCurrentVersionNo] = useState<number | null>(null);
@@ -164,6 +166,13 @@ export default function Workspace() {
   const generate = useCallback(async () => {
     if (!transcript.trim()) { toast.warning("Enter a transcript or observations first."); return; }
     await persist();
+    // Red-flag pre-scan (pioneer): runs in parallel, never blocks generation.
+    setRedFlags(null);
+    setScanningFlags(true);
+    api.scanRedFlags(encId, transcript)
+      .then((r) => setRedFlags(r.flags))
+      .catch(() => setRedFlags([]))
+      .finally(() => setScanningFlags(false));
     rawRef.current = "";
     setSections(EMPTY); setCodes([]); setRawFallback(null); setGenError(null);
     setStatus("streaming"); setTool(null);
@@ -348,6 +357,29 @@ export default function Workspace() {
 
         {/* SOAP */}
         <div className="min-h-0 overflow-y-auto bg-muted/20 p-4">
+          {(scanningFlags || (redFlags && redFlags.length > 0)) && (
+            <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                <AlertOctagon className="h-4 w-4" />
+                {scanningFlags
+                  ? "Scanning for clinical red flags…"
+                  : `${redFlags!.length} clinical red flag${redFlags!.length > 1 ? "s" : ""} detected — review before finalizing`}
+              </div>
+              {redFlags && redFlags.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {redFlags.map((f, i) => (
+                    <li key={i} className="flex gap-2 text-xs">
+                      <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${f.severity === "high" ? "bg-destructive" : "bg-warning"}`} />
+                      <span>
+                        <span className="font-medium">{f.flag}.</span>{" "}
+                        <span className="text-muted-foreground">{f.rationale}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {status === "insufficient" ? (
             <div className="flex h-full items-center justify-center">
               <div className="max-w-sm rounded-md border border-warning/40 bg-warning/5 p-6 text-center">

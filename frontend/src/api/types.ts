@@ -103,6 +103,12 @@ export interface IcdSearchResult {
   score: number;
 }
 
+export interface RedFlag {
+  flag: string;
+  rationale: string;
+  severity: "high" | "moderate";
+}
+
 export interface TemplateSummary {
   id: number;
   name: string;
