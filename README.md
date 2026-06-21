@@ -57,8 +57,17 @@ No credentials are committed. Local secrets live in the gitignored `backend/.env
 key are read from **AWS Secrets Manager** via the EC2 instance's IAM role —
 see `infra/DEPLOY.md` (produced in M11).
 
+## Deployment
+
+Hosted on AWS EC2 behind nginx (TLS via Let's Encrypt), with RDS in a private
+subnet (not publicly accessible) and secrets in AWS Secrets Manager read via an
+EC2 instance role. All deploy artifacts are in [`infra/`](infra/):
+`nginx.conf`, `scribe-api.service` (systemd), `bootstrap.sh`, `deploy.sh`,
+Terraform (`infra/terraform/`), and the runbook [`infra/DEPLOY.md`](infra/DEPLOY.md).
+
 ## Build status
 
-Built in milestones M0–M11; see the development notes / commit history. Current:
-**M0 scaffold** complete (monorepo, docker-compose, FastAPI skeleton with
-config/secrets loader, single async connection pool in `lifespan`, `/api/health`).
+Complete through milestones M0–M11: scaffold, schema+seed, auth, encounters/drafts,
+streaming generation, immutable versions, ICD search, admin+audit, the React SPA,
+non-happy-path handling, pioneer features (version diff + red-flag scan), and the
+deploy/IaC artifacts. See commit history for the per-milestone breakdown.

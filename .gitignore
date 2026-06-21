@@ -28,6 +28,15 @@ dist-ssr/
 .huggingface/
 models--*/
 
+# ---- Terraform (state can contain secrets; tfvars holds creds) ----
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+.terraform.lock.hcl
+
 # ---- OS / editor ----
 .DS_Store
 .idea/

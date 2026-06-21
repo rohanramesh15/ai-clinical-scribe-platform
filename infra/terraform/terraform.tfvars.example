@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars (GITIGNORED) and fill in. Never commit the real file.
+region     = "us-east-1"
+key_name   = "your-ec2-keypair-name"
+admin_cidr = "203.0.113.7/32" # your IP/32 for SSH — never 0.0.0.0/0
+
+# Secrets — written into Secrets Manager, never into the app repo.
+db_password    = "choose-a-strong-db-password"
+gemini_api_key = "AIza...your-gemini-key"

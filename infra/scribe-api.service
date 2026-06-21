@@ -1,0 +1,46 @@
+# systemd unit for the FastAPI backend.
+#
+# Runs gunicorn with Uvicorn workers bound to 127.0.0.1:8000 (loopback only —
+# nginx is the sole public process). Auto-starts on boot, auto-restarts on
+# failure. `systemctl restart scribe-api` is the redeploy step.
+#
+# Install to /etc/systemd/system/scribe-api.service (bootstrap.sh does this).
+
+[Unit]
+Description=Clinical Scribe FastAPI (gunicorn + uvicorn workers)
+After=network.target
+
+[Service]
+Type=simple
+User=scribe
+Group=scribe
+WorkingDirectory=/opt/scribe/backend
+
+# Secrets themselves are NOT here — only the non-secret pointers. DB creds and
+# the Gemini key are fetched from AWS Secrets Manager in lifespan via the EC2
+# instance role. APP_ENV=production selects the Secrets Manager source.
+Environment=APP_ENV=production
+Environment=AWS_REGION=us-east-1
+Environment=APP_SECRET_NAME=clinical-scribe/app
+
+# Total DB connections = workers x (db_pool_size + db_max_overflow). With 2
+# workers and the defaults (5+5) that's 20; keep it under RDS max_connections.
+ExecStart=/opt/scribe/backend/.venv/bin/gunicorn app.main:app \
+    --workers 2 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --bind 127.0.0.1:8000 \
+    --timeout 300 \
+    --graceful-timeout 30 \
+    --access-logfile - \
+    --error-logfile -
+
+Restart=always
+RestartSec=3
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
