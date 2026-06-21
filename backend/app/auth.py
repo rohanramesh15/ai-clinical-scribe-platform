@@ -56,11 +56,12 @@ async def create_session(
 async def resolve_session(
     db: AsyncSession, raw_token: str
 ) -> tuple[SessionModel, Provider] | None:
-    """Look up a live session by raw token. Returns (session, provider) or None.
+    """Look up a session by raw token. Returns (session, provider) or None if the
+    token matches nothing.
 
-    'Live' = exists, not expired, not revoked. The provider's `active` flag is
-    NOT checked here — the caller distinguishes 401 (no/invalid session) from
-    403 (valid session but deactivated account) for the deactivation scenario.
+    Liveness (revoked/expired) is NOT filtered here — the caller checks it AFTER
+    the provider's `active` flag, so a deactivated account yields a clear 403
+    even though deactivation also revoked its sessions.
     """
     token_hash = _hash_token(raw_token)
     result = await db.execute(
@@ -71,12 +72,11 @@ async def resolve_session(
     row = result.first()
     if row is None:
         return None
-    session_row, provider = row
-    if session_row.revoked_at is not None:
-        return None
-    if session_row.expires_at <= _now():
-        return None
-    return session_row, provider
+    return row[0], row[1]
+
+
+def is_session_live(session_row: SessionModel) -> bool:
+    return session_row.revoked_at is None and session_row.expires_at > _now()
 
 
 async def touch_session(db: AsyncSession, session_id: int) -> None:

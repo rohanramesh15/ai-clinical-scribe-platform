@@ -141,3 +141,82 @@ class IcdSearchResult(BaseModel):
     description: str
     score: float  # 1 - cosine_distance (1.0 = closest)
 
+
+# --- Templates (provider dropdown + admin management, M7) ---
+
+class TemplateOut(BaseModel):
+    id: int
+    name: str
+    encounter_type: str
+    system_prompt: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class TemplateSummary(BaseModel):
+    """Lightweight shape for the provider's template dropdown (active only)."""
+    id: int
+    name: str
+    encounter_type: str
+
+
+class TemplateCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    encounter_type: str = Field(min_length=1, max_length=80)
+    system_prompt: str = Field(min_length=1)
+
+
+class TemplateUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, max_length=200)
+    encounter_type: str | None = Field(default=None, max_length=80)
+    system_prompt: str | None = None
+
+
+# --- Admin: providers + encounters (M7) ---
+
+class ProviderRosterItem(BaseModel):
+    id: int
+    email: str
+    role: str
+    active: bool
+    created_at: datetime
+
+
+class AddProviderRequest(BaseModel):
+    email: EmailStr
+    role: Literal["provider", "admin"] = "provider"
+
+
+class AddProviderResponse(BaseModel):
+    provider: ProviderRosterItem
+    temp_password: str  # shown once to the admin; never stored in plaintext
+
+
+class DeactivateProviderResponse(BaseModel):
+    provider: ProviderRosterItem
+    revoked_sessions: int
+
+
+class AdminEncounterListItem(BaseModel):
+    id: int
+    public_id: str
+    provider_email: str
+    patient_name: str
+    patient_dob: date
+    status: str
+    current_version_no: int | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdminEncounterView(BaseModel):
+    id: int
+    public_id: str
+    provider_email: str
+    patient: PatientOut
+    status: str
+    created_at: datetime
+    current_version: VersionDetail | None
+    versions: list[VersionListItem]
+

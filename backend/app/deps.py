@@ -15,7 +15,7 @@ from collections.abc import AsyncIterator
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from .auth import resolve_session
+from .auth import is_session_live, resolve_session
 from .config import Settings
 from .models import Provider, Role
 
@@ -41,14 +41,17 @@ async def get_current_provider(
 
     resolved = await resolve_session(db, raw_token)
     if resolved is None:
-        # No session, expired, or revoked. The client should re-authenticate.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="session_invalid")
 
-    _session_row, provider = resolved
+    session_row, provider = resolved
+    # Deactivation takes precedence over session liveness: an admin-deactivated
+    # account gets a clear 403 (the client shows a deactivation state and logs
+    # out), even though deactivation also revoked its sessions.
     if not provider.active:
-        # Valid session but the account was deactivated (admin action). Distinct
-        # 403 so the client can show the deactivation state and log out cleanly.
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account_deactivated")
+    if not is_session_live(session_row):
+        # Expired or revoked (e.g. logout) on an otherwise-active account -> 401.
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="session_invalid")
 
     return provider
 
