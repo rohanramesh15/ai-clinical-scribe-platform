@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from .config import get_settings
 from .db import build_engine, build_sessionmaker
 from .routers import auth as auth_router
+from .routers import encounters as encounters_router
 from .secrets import load_runtime_secrets
 
 # Unsafe methods require a matching CSRF token (double-submit cookie). Login is
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
         return await call_next(request)
 
     app.include_router(auth_router.router)
+    app.include_router(encounters_router.router)
 
     @app.get("/api/health")
     async def health() -> dict[str, str]:
