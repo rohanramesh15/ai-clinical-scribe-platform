@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -74,7 +75,61 @@ class EncounterDetail(BaseModel):
     transcript: str | None
     working_note: dict | None
     current_note_version_id: int | None
+    current_version_no: int | None
     prior_encounter_count: int  # finalized encounters for this patient (badge)
     created_at: datetime
     updated_at: datetime
+
+
+# --- Versions / save (M5) ---
+
+class DiagnosisIn(BaseModel):
+    code: str
+    is_primary: bool = False
+    source: Literal["ai_suggested", "provider_added"] = "ai_suggested"
+
+
+class SaveVersionRequest(BaseModel):
+    subjective: str = ""
+    objective: str = ""
+    assessment: str = ""
+    plan: str = ""
+    codes: list[DiagnosisIn] = Field(default_factory=list)
+    # Optimistic concurrency: the version this edit was based on (0 for a brand
+    # new note). Save is rejected if a newer version exists.
+    based_on_version_no: int = 0
+    model_name: str | None = None
+    system_prompt_snapshot: str | None = None
+
+
+class DiagnosisOut(BaseModel):
+    code: str
+    description: str
+    is_primary: bool
+    source: str
+
+
+class VersionDetail(BaseModel):
+    id: int
+    version_no: int
+    subjective: str
+    objective: str
+    assessment: str
+    plan: str
+    created_by_email: str
+    created_at: datetime
+    diagnoses: list[DiagnosisOut]
+
+
+class SaveVersionResponse(BaseModel):
+    version: VersionDetail
+    dropped_codes: list[str]  # codes that didn't match the catalog (omitted)
+
+
+class VersionListItem(BaseModel):
+    id: int
+    version_no: int
+    created_by_email: str
+    created_at: datetime
+    diagnosis_count: int
 
