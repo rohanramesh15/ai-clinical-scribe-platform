@@ -41,15 +41,16 @@ TEMPLATES = [
         "name": "New Patient Evaluation",
         "encounter_type": "new_patient",
         "system_prompt": (
-            "This is a NEW PATIENT comprehensive evaluation. Produce a thorough, "
-            "structured note. In Subjective, capture a full HPI (onset, location, "
-            "duration, character, aggravating/relieving factors, associated symptoms), "
-            "a complete past medical/surgical history, medications, allergies, family "
-            "history, social history, and a focused review of systems. In Objective, "
-            "include a complete set of vitals and a head-to-toe exam by system. In "
-            "Assessment, enumerate a prioritized problem list, each problem with its "
-            "own reasoning. In Plan, give per-problem workup, treatment, patient "
-            "education, and explicit follow-up. Favor completeness over brevity."
+            "This is a NEW PATIENT comprehensive evaluation. Cover all standard "
+            "sections, but write each concisely. In Subjective, capture a full HPI "
+            "(onset, location, duration, character, aggravating/relieving factors, "
+            "associated symptoms), past medical/surgical history, medications, "
+            "allergies, family history, social history, and a focused review of "
+            "systems. In Objective, include a full set of vitals and a head-to-toe "
+            "exam by system. In Assessment, give a prioritized problem list, each "
+            "problem with brief reasoning. In Plan, give per-problem workup, "
+            "treatment, patient education, and follow-up. Be complete in coverage "
+            "but succinct in wording — short phrases over long prose."
         ),
     },
     {

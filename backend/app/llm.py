@@ -51,6 +51,18 @@ INSUFFICIENT CONTENT:
 unrelated text), output EXACTLY the single token {INSUFFICIENT} and nothing \
 else. Never fabricate a note from non-clinical input.
 
+WRITING STYLE (governs wording and formatting of every note; these rules \
+OVERRIDE any conflicting style or brevity wording in the encounter-type \
+guidance below, but never reduce which sections or problems you must cover):
+- PLAIN TEXT ONLY. Do NOT use Markdown or any markup: no ** or __ for bold, \
+no #, no backticks, no "*" or "-" bullet characters. Write any field label as \
+plain text followed by a colon, e.g. "Chief Complaint: ...", never \
+"**Chief Complaint**".
+- BE SUCCINCT. Use short, information-dense clinical phrasing and standard \
+abbreviations; prefer fragments over full sentences. Omit filler, restated \
+prompt text, and pertinent-normal or negative findings unless clinically \
+relevant. Cover every required section and problem, but keep each entry brief.
+
 OUTPUT FORMAT (follow precisely; output NOTHING outside these delimiters — no \
 preamble, no markdown, no section headings of your own):
 {SEC_OPEN['subjective']}
