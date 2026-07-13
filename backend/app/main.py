@@ -9,6 +9,7 @@ Per-request code never builds engines or opens raw connections.
 """
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -53,6 +54,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from .llm import build_genai_client
 
         app.state.genai_client = build_genai_client(secrets.gemini_api_key)
+
+    # Warm the local embedding model (torch + MiniLM) at boot so the FIRST
+    # ICD-10 search doesn't pay the multi-second load cost mid-request.
+    # Best-effort: a failure must not block startup — it falls back to the
+    # existing lazy load on first use.
+    try:
+        from .embeddings import embed_text
+
+        await asyncio.to_thread(embed_text, "warmup")
+    except Exception:  # noqa: BLE001 - warm-up is optional; never crash boot
+        pass
 
     try:
         yield

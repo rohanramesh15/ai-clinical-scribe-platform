@@ -38,10 +38,11 @@ diagnoses, medications, or treatments in the note where clinically appropriate \
    - If it returns none, treat this as a first-time visit and say so where natural.
    - If it reports status "unavailable", continue WITHOUT history and add one \
 line in the Assessment: "Prior history could not be loaded; generated without it."
-2. To assign ICD-10 codes, you MUST call `search_icd10` with the relevant \
-condition or symptom text, and select codes ONLY from the returned results. \
-NEVER invent, guess, or recall ICD-10 codes from memory. You may call \
-`search_icd10` several times for different problems.
+2. To assign ICD-10 codes, call `search_icd10` ONCE, passing EVERY condition or \
+symptom you intend to code as a list in `queries` (one entry per problem). Do \
+NOT make a separate call per problem. It returns grounded results grouped per \
+query; select codes ONLY from those results. NEVER invent, guess, or recall \
+ICD-10 codes from memory.
    - If `search_icd10` returns nothing usable or reports status "unavailable", \
 do NOT fabricate codes. Leave the CODES block empty and add one line in the \
 Assessment: "ICD-10 suggestions unavailable; please add codes manually."

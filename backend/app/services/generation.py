@@ -22,7 +22,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..config import Settings
-from ..embeddings import embed_text
+from ..embeddings import embed_texts
 from ..llm import INSUFFICIENT, build_system_instruction
 from ..models import (
     Encounter,
@@ -82,27 +82,37 @@ async def _get_patient_history(db: AsyncSession, patient_id: int) -> dict:
     return {"status": "ok", "prior_encounter_count": len(prior), "prior_encounters": prior}
 
 
-async def _search_icd10(db: AsyncSession, query_text: str) -> dict:
-    query_text = (query_text or "").strip()
-    if not query_text:
+async def _search_icd10(db: AsyncSession, queries: list[str]) -> dict:
+    """Semantic search for one OR MORE conditions in a single call.
+
+    Batching every condition into one call lets the model ground all diagnoses in
+    a single tool turn instead of one Gemini round-trip per problem.
+    """
+    clean = [q.strip() for q in (queries or []) if isinstance(q, str) and q.strip()]
+    if not clean:
         return {"status": "ok", "results": []}
-    # Embedding is CPU-bound (torch) — offload so it doesn't block the event loop.
-    vec = await asyncio.to_thread(embed_text, query_text)
-    rows = (
-        await db.execute(
-            select(
-                Icd10Code.code,
-                Icd10Code.description,
-                Icd10Code.embedding.cosine_distance(vec).label("d"),
+    # Embedding is CPU-bound (torch) — batch all queries in ONE off-thread call.
+    vecs = await asyncio.to_thread(embed_texts, clean)
+    results = []
+    for query_text, vec in zip(clean, vecs):
+        rows = (
+            await db.execute(
+                select(
+                    Icd10Code.code,
+                    Icd10Code.description,
+                    Icd10Code.embedding.cosine_distance(vec).label("d"),
+                )
+                .order_by("d")
+                .limit(ICD_TOPK)
             )
-            .order_by("d")
-            .limit(ICD_TOPK)
+        ).all()
+        results.append(
+            {
+                "query": query_text,
+                "matches": [{"code": c, "description": d} for c, d, _ in rows],
+            }
         )
-    ).all()
-    return {
-        "status": "ok",
-        "results": [{"code": c, "description": d} for c, d, _ in rows],
-    }
+    return {"status": "ok", "results": results}
 
 
 async def _dispatch(name: str, args: dict, db: AsyncSession, patient_id: int) -> dict:
@@ -111,7 +121,13 @@ async def _dispatch(name: str, args: dict, db: AsyncSession, patient_id: int) ->
         if name == "get_patient_history":
             return await _get_patient_history(db, patient_id)  # ignores model args
         if name == "search_icd10":
-            return await _search_icd10(db, args.get("query_text", ""))
+            raw = args.get("queries")
+            if raw is None:  # tolerate the model sending a single query_text
+                single = args.get("query_text")
+                raw = [single] if single else []
+            if isinstance(raw, str):
+                raw = [raw]
+            return await _search_icd10(db, list(raw))
         return {"status": "error", "detail": "unknown_function"}
     except Exception as exc:  # noqa: BLE001 - deliberately broad: tool must not crash stream
         return {"status": "unavailable", "detail": str(exc)[:200]}
@@ -130,19 +146,26 @@ def _tool_config(types):
     search = types.FunctionDeclaration(
         name="search_icd10",
         description=(
-            "Search the ICD-10 catalog for codes matching a plain-English condition "
-            "or symptom. Returns grounded {code, description} results. Use ONLY these "
-            "results when assigning codes; never invent codes."
+            "Search the ICD-10 catalog for codes matching plain-English conditions "
+            "or symptoms. Pass EVERY condition you intend to code in a single call "
+            "via `queries`; results come back grounded and grouped per query "
+            "({query, matches:[{code, description}]}). Use ONLY these results when "
+            "assigning codes; never invent codes."
         ),
         parameters_json_schema={
             "type": "object",
             "properties": {
-                "query_text": {
-                    "type": "string",
-                    "description": "A condition or symptom, e.g. 'acute low back pain'.",
+                "queries": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "One entry per condition/symptom to code, e.g. "
+                        "['acute low back pain', 'type 2 diabetes']. Include ALL "
+                        "problems in this ONE call — do not call the tool repeatedly."
+                    ),
                 }
             },
-            "required": ["query_text"],
+            "required": ["queries"],
         },
     )
     return types.Tool(function_declarations=[get_history, search])
