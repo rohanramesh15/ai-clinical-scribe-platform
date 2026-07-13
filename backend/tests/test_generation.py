@@ -66,13 +66,17 @@ async def test_insufficient_short_circuit(sessionmaker):
 
 @pytest.mark.asyncio
 async def test_search_icd10_tool_is_grounded(sessionmaker):
+    # One call, multiple conditions -> results grouped per query.
     async with sessionmaker() as db:
-        result = await gen._search_icd10(db, "chest pain")
+        result = await gen._search_icd10(db, ["chest pain", "cough"])
     assert result["status"] == "ok"
-    assert result["results"], "expected ICD matches"
-    # Every returned code is a real catalog entry (string codes, non-empty desc).
-    for r in result["results"]:
-        assert r["code"] and r["description"]
+    assert len(result["results"]) == 2, "expected one group per query"
+    for group in result["results"]:
+        assert group["query"]
+        assert group["matches"], "expected ICD matches"
+        # Every returned code is a real catalog entry (string code, non-empty desc).
+        for m in group["matches"]:
+            assert m["code"] and m["description"]
 
 
 @pytest.mark.asyncio
@@ -91,7 +95,7 @@ async def test_dispatch_degrades_on_tool_failure(sessionmaker, monkeypatch):
 
     monkeypatch.setattr(gen, "_search_icd10", boom)
     async with sessionmaker() as db:
-        r = await gen._dispatch("search_icd10", {"query_text": "x"}, db, 1)
+        r = await gen._dispatch("search_icd10", {"queries": ["x"]}, db, 1)
     assert r["status"] == "unavailable"
 
 
@@ -102,7 +106,7 @@ async def test_loop_dispatches_tool_then_streams_text(sessionmaker):
     # Turn 1: model asks for search_icd10. Turn 2: model emits note text.
     turn1 = [
         _chunk([
-            types.Part(function_call=types.FunctionCall(name="search_icd10", args={"query_text": "cough"}))
+            types.Part(function_call=types.FunctionCall(name="search_icd10", args={"queries": ["cough"]}))
         ])
     ]
     turn2 = [_chunk([types.Part(text="‹SUBJECTIVE›cough x3d‹/SUBJECTIVE›")])]
