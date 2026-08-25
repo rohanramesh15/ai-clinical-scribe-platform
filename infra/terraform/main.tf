@@ -138,6 +138,10 @@ resource "aws_db_subnet_group" "db" {
   tags       = local.tags
 }
 
+# When var.db_snapshot_identifier is set, this restores from that snapshot
+# instead of creating an empty DB. db_name/username come from the snapshot
+# and cannot be set in that case; password is still applied so it matches
+# the Secrets Manager value below.
 resource "aws_db_instance" "db" {
   identifier             = "${local.name}-db"
   engine                 = "postgres"
@@ -146,8 +150,9 @@ resource "aws_db_instance" "db" {
   allocated_storage      = 20
   storage_type           = "gp3"
   storage_encrypted      = true
-  db_name                = var.db_name
-  username               = var.db_username
+  snapshot_identifier    = var.db_snapshot_identifier
+  db_name                = var.db_snapshot_identifier == null ? var.db_name : null
+  username               = var.db_snapshot_identifier == null ? var.db_username : null
   password               = var.db_password
   db_subnet_group_name   = aws_db_subnet_group.db.name
   vpc_security_group_ids = [aws_security_group.rds.id]
@@ -213,17 +218,14 @@ resource "aws_iam_instance_profile" "app" {
 }
 
 # --- EC2 (Ubuntu 24.04) -----------------------------------------------------
-data "aws_ami" "ubuntu" {
-  most_recent = true
-  owners      = ["099720109477"] # Canonical
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
-  }
-}
-
+# AMI is PINNED (var.ami_id), not resolved via "latest" at apply time. A
+# data.aws_ami "most_recent" lookup here previously caused an apply to
+# silently replace the running instance when a newer Ubuntu AMI shipped —
+# since bootstrap.sh is a manual step, not user-data, the replacement came up
+# bare (outage). Re-resolve deliberately (see README note below var.ami_id)
+# and bump the default only when you intend a replacement.
 resource "aws_instance" "app" {
-  ami                    = data.aws_ami.ubuntu.id
+  ami                    = var.ami_id
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.app.id]
@@ -235,4 +237,16 @@ resource "aws_instance" "app" {
     encrypted   = true
   }
   tags = merge(local.tags, { Name = "${local.name}-app" })
+}
+
+# Elastic IP so the instance's public IP is stable across any future
+# replacement — the domain (DNS A record) only needs to be pointed here once.
+resource "aws_eip" "app" {
+  domain = "vpc"
+  tags   = merge(local.tags, { Name = "${local.name}-eip" })
+}
+
+resource "aws_eip_association" "app" {
+  instance_id   = aws_instance.app.id
+  allocation_id = aws_eip.app.id
 }

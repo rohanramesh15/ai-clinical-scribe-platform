@@ -1,6 +1,6 @@
 output "app_public_ip" {
-  description = "Point your DNS A record at this, then run bootstrap.sh."
-  value       = aws_instance.app.public_ip
+  description = "Elastic IP — point your DNS A record at this, then run bootstrap.sh. Stable across future instance replacements."
+  value       = aws_eip.app.public_ip
 }
 
 output "app_public_dns" {
