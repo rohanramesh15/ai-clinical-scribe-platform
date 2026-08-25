@@ -260,7 +260,7 @@ export default function Workspace() {
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       {/* Workspace toolbar: patient | ICD-10 search | actions */}
-      <div className="flex items-center gap-4 border-b border-border bg-card px-4 py-2">
+      <div className="flex animate-fade-up items-center gap-4 border-b border-border bg-card px-4 py-2">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm font-semibold">
@@ -331,7 +331,7 @@ export default function Workspace() {
             <button
               type="button"
               onClick={() => setRedFlagsOpen((o) => !o)}
-              className="flex w-full items-center gap-1.5 text-xs font-semibold text-destructive"
+              className="flex w-full items-center gap-1.5 rounded-sm text-xs font-semibold text-destructive transition-opacity duration-150 hover:opacity-80 active:opacity-70"
             >
               <AlertOctagon className="h-4 w-4 shrink-0" />
               <span className="flex-1 text-left">

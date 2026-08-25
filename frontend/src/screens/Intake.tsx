@@ -99,7 +99,7 @@ export default function Intake() {
         <ArrowLeft className="h-3.5 w-3.5" /> Encounters
       </Button>
 
-      <div className="mb-5 flex flex-wrap items-center gap-2">
+      <div className="mb-5 flex animate-fade-up flex-wrap items-center gap-2">
         <h1 className="text-lg font-semibold tracking-tight">
           {patient ? `${patient.last_name}, ${patient.first_name}` : "…"}
         </h1>
@@ -112,7 +112,7 @@ export default function Intake() {
         )}
       </div>
 
-      <div className="space-y-1.5">
+      <div className="stagger-1 animate-fade-up space-y-1.5">
         <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Template</label>
         <Select
           value={templateId ? String(templateId) : undefined}

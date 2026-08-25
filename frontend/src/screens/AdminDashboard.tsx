@@ -29,8 +29,8 @@ function fmt(ts: string) {
 export default function AdminDashboard() {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-6">
-      <h1 className="mb-4 text-lg font-semibold tracking-tight">Administration</h1>
-      <Tabs defaultValue="encounters">
+      <h1 className="mb-4 animate-fade-up text-lg font-semibold tracking-tight">Administration</h1>
+      <Tabs defaultValue="encounters" className="stagger-1 animate-fade-up">
         <TabsList>
           <TabsTrigger value="encounters">Encounters</TabsTrigger>
           <TabsTrigger value="providers">Providers</TabsTrigger>
