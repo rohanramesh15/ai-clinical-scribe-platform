@@ -34,6 +34,17 @@ variable "instance_type" {
   default = "t3.small"
 }
 
+# Pinned deliberately — do NOT switch back to a "latest AMI" data lookup (see
+# the comment above aws_instance.app). Resolved 2026-08-25 via:
+#   aws ec2 describe-images --owners 099720109477 \
+#     --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*" \
+#     --query "reverse(sort_by(Images, &CreationDate))[:1]"
+variable "ami_id" {
+  description = "Pinned Ubuntu 24.04 AMI id (Canonical). Re-resolve deliberately, never 'latest'."
+  type        = string
+  default     = "ami-052355af2a014bd2c"
+}
+
 variable "db_instance_class" {
   type    = string
   default = "db.t3.micro"
@@ -71,4 +82,12 @@ variable "db_password" {
 variable "gemini_api_key" {
   type      = string
   sensitive = true
+}
+
+# Set to restore RDS from a snapshot (e.g. after a teardown) instead of
+# creating an empty database. db_name/username are inherited from the
+# snapshot in that case; see the aws_db_instance.db comment.
+variable "db_snapshot_identifier" {
+  type    = string
+  default = null
 }
