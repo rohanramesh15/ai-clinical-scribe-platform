@@ -82,7 +82,7 @@ export function IcdSearchBar({ onAppend, disabled }: Props) {
                   type="button"
                   disabled={disabled}
                   onClick={() => { onAppend(r); setQ(""); setResults([]); setOpen(false); }}
-                  className="group flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent disabled:opacity-50"
+                  className="group flex w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-accent active:bg-accent/80 disabled:opacity-50"
                 >
                   <span title="Add to Assessment" className="shrink-0">
                     <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary" />

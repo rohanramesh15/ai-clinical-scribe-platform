@@ -79,7 +79,7 @@ export default function EncounterList() {
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-6">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex animate-fade-up items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">My encounters</h1>
           <p className="text-xs text-muted-foreground">
@@ -123,7 +123,7 @@ export default function EncounterList() {
         </Dialog>
       </div>
 
-      <div className="rounded-md border border-border bg-card">
+      <div className="stagger-1 animate-fade-up rounded-md border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>

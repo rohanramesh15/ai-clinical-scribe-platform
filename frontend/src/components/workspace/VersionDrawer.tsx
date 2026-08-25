@@ -107,7 +107,7 @@ export function VersionDrawer({ encounterId, open, onOpenChange, refreshKey, cur
                     type="button"
                     onClick={() => view(v.version_no)}
                     className={cn(
-                      "w-full border-b border-border px-3 py-2 text-left hover:bg-accent",
+                      "w-full border-b border-border px-3 py-2 text-left transition-colors duration-150 hover:bg-accent active:bg-accent/80",
                       selected?.version_no === v.version_no && "bg-accent",
                     )}
                   >

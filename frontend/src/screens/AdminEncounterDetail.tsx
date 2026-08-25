@@ -1,13 +1,47 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { api } from "@/api/client";
 import type { AdminEncounterView } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 function fmt(ts: string) {
   return new Date(ts).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+
+// One-shot reveal as each note section scrolls into view — the single
+// scroll-triggered moment for this app's actual "product story": an admin
+// reviewing the AI-authored note. No parallax, no re-trigger on scroll-out.
+function useRevealed<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.2 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return { ref, visible };
+}
+
+function RevealSection({ children, className }: { children: React.ReactNode; className?: string }) {
+  const { ref, visible } = useRevealed<HTMLDivElement>();
+  return (
+    <div ref={ref} className={cn("scroll-reveal", visible && "scroll-reveal-visible", className)}>
+      {children}
+    </div>
+  );
 }
 
 export default function AdminEncounterDetail() {
@@ -34,7 +68,7 @@ export default function AdminEncounterDetail() {
         <ArrowLeft className="h-3.5 w-3.5" />Back
       </Button>
 
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex animate-fade-up items-center gap-3">
         <h1 className="text-lg font-semibold">
           {view.patient.last_name}, {view.patient.first_name}
         </h1>
@@ -48,17 +82,17 @@ export default function AdminEncounterDetail() {
         <div className="space-y-3">
           {!v && <p className="text-sm text-muted-foreground">No finalized note for this encounter.</p>}
           {v && (["subjective", "objective", "assessment", "plan"] as const).map((k) => (
-            <div key={k} className="rounded-md border border-border bg-card">
+            <RevealSection key={k} className="rounded-md border border-border bg-card">
               <div className="border-b border-border bg-muted/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {k}
               </div>
               <p className="whitespace-pre-wrap px-3 py-2 text-xs leading-relaxed">
                 {v[k] || <span className="text-muted-foreground">—</span>}
               </p>
-            </div>
+            </RevealSection>
           ))}
           {v && v.diagnoses.length > 0 && (
-            <div className="rounded-md border border-border bg-card">
+            <RevealSection className="rounded-md border border-border bg-card">
               <div className="border-b border-border bg-muted/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Diagnoses
               </div>
@@ -73,7 +107,7 @@ export default function AdminEncounterDetail() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </RevealSection>
           )}
         </div>
 

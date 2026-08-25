@@ -42,11 +42,11 @@ export default function Login() {
   return (
     <div className="flex h-full items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2">
+        <div className="mb-6 flex animate-fade-up items-center gap-2">
           <Activity className="h-5 w-5 text-primary" />
           <h1 className="text-base font-semibold tracking-tight">Clinical Scribe</h1>
         </div>
-        <div className="rounded-md border border-border bg-card p-6 shadow-sm">
+        <div className="stagger-1 animate-fade-up rounded-md border border-border bg-card p-6 shadow-sm">
           <h2 className="text-sm font-semibold">Sign in</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Provider and administrator access.

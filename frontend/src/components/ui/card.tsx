@@ -9,7 +9,10 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-xl border bg-card text-card-foreground shadow",
+      // rounded-lg/shadow-sm, not the shadcn defaults (rounded-xl/shadow) —
+      // matched to this app's --radius token and elevation scale so a card
+      // dropped into any screen looks native, not imported.
+      "rounded-lg border border-border bg-card text-card-foreground shadow-sm",
       className
     )}
     {...props}

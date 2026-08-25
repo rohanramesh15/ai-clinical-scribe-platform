@@ -46,3 +46,39 @@
     font-size: 14px;
   }
 }
+
+/* Motion system --------------------------------------------------------
+   Two timing tiers used everywhere: 150ms for exits/presses (fast, gets out
+   of the way), 200ms for entrances (deliberate but not slow). Nothing in
+   this app should introduce a third duration without a reason. */
+@layer utilities {
+  .stagger-1 { animation-delay: 40ms; }
+  .stagger-2 { animation-delay: 80ms; }
+  .stagger-3 { animation-delay: 120ms; }
+
+  /* One-shot scroll-into-view reveal (not parallax — no continuous
+     scroll-linked transform, just a threshold-triggered transition that
+     settles once and stays put). Used for the admin read-only note view. */
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  }
+  .scroll-reveal-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Respect the OS-level motion preference globally rather than hunting down
+   every animated element individually — this neutralizes the page-load
+   stagger, scroll reveal, and all Radix/tailwindcss-animate transitions at
+   once, while still letting content appear (just without the movement). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
