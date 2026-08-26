@@ -24,8 +24,30 @@ const TITLES: Record<keyof Sections, string> = {
 };
 const TOOL_LABEL: Record<string, string> = {
   get_patient_history: "Retrieving patient history…",
-  search_icd10: "Searching ICD-10 catalog…",
+  search_icd10: "Searching the ICD-10 code database…",
 };
+
+// Shown from the moment generation starts until the model's first token
+// arrives — covers the tool-calling phase (patient history lookup, the
+// vector search over ICD-10 embeddings) where there's no note text yet to
+// display. The message is tied to the real `tool` event, not a fake
+// progress simulation. Once real text starts streaming this unmounts and
+// the actual SOAP sections take over (see SoapSection's own token-by-token
+// reveal).
+function GenerationLoadingScreen({ tool }: { tool: string | null }) {
+  const message = tool ? (TOOL_LABEL[tool] ?? tool) : "Starting generation…";
+  return (
+    <div className="flex flex-1 items-center justify-center">
+      <div className="max-w-sm rounded-md border border-border bg-card p-6 text-center">
+        <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+        <h3 className="mt-2 text-sm font-semibold">Generating note</h3>
+        <p key={message} className="mt-1 animate-fade-up text-xs text-muted-foreground">
+          {message}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function Workspace() {
   const { id } = useParams();
@@ -259,8 +281,11 @@ export default function Workspace() {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      {/* Workspace toolbar: patient | ICD-10 search | actions */}
-      <div className="flex animate-fade-up items-center gap-4 border-b border-border bg-card px-4 py-2">
+      {/* Workspace toolbar: patient | ICD-10 search | actions. Sticky right
+          below TopBar (h-12) so it stays reachable while a long note scrolls —
+          the SOAP sections now grow to content height (see SoapSection) and
+          can push well past one viewport. */}
+      <div className="sticky top-12 z-10 flex animate-fade-up items-center gap-4 border-b border-border bg-card px-4 py-2">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm font-semibold">
@@ -313,13 +338,6 @@ export default function Workspace() {
             <Button size="sm" variant="outline" className="h-6 text-xs" onClick={loadLatest}>Load latest</Button>
             <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setConflict(null)}>Dismiss</Button>
           </div>
-        </div>
-      )}
-
-      {status === "streaming" && tool && (
-        <div className="flex items-center gap-1.5 border-b border-border bg-primary/5 px-4 py-1.5 text-xs text-primary">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          {TOOL_LABEL[tool] ?? tool}
         </div>
       )}
 
@@ -380,6 +398,8 @@ export default function Workspace() {
             </p>
             <pre className="whitespace-pre-wrap text-xs leading-relaxed">{rawFallback}</pre>
           </div>
+        ) : status === "streaming" && !hasContent ? (
+          <GenerationLoadingScreen tool={tool} />
         ) : !hasContent && status !== "streaming" && !autoPending ? (
           <div className="flex flex-1 items-center justify-center">
             <div className="max-w-sm rounded-md border border-border bg-card p-6 text-center">
