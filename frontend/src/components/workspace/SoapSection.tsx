@@ -69,8 +69,8 @@ export function SoapSection({ title, value, onChange, editable, streaming, missi
   }, [streaming]);
 
   return (
-    <div className="flex flex-col rounded-md border border-border bg-card">
-      <div className="flex items-center justify-between border-b border-border bg-muted/40 px-3 py-1.5">
+    <div className="flex flex-col">
+      <div className="mb-1 flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {title}
         </span>
@@ -79,7 +79,7 @@ export function SoapSection({ title, value, onChange, editable, streaming, missi
         )}
       </div>
       {streaming ? (
-        <div className="min-h-[80px] whitespace-pre-wrap px-3 py-2 font-normal leading-relaxed">
+        <div className="min-h-[80px] whitespace-pre-wrap font-normal leading-relaxed">
           {tokenize(value.slice(0, revealedLength)).map((tok, i) =>
             tok.word ? (
               <span key={i} className="inline-block animate-fade-up">{tok.text}</span>
@@ -98,7 +98,7 @@ export function SoapSection({ title, value, onChange, editable, streaming, missi
           placeholder={editable ? `${title}…` : ""}
           rows={1}
           className={cn(
-            "min-h-[80px] resize-none overflow-hidden rounded-none border-0 bg-transparent font-normal leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0",
+            "min-h-[80px] resize-none overflow-hidden rounded-none border-0 bg-transparent px-0 py-0 font-normal leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0",
             missing && "bg-warning/5",
           )}
         />
