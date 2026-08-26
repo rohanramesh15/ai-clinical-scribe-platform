@@ -78,7 +78,7 @@ export function SoapSection({ title, value, onChange, editable, streaming, missi
           <span className="text-[10px] font-medium text-warning">not generated</span>
         )}
       </div>
-      <div className="rounded-md border border-border bg-card">
+      <div className="rounded-lg border border-border bg-card">
         {streaming ? (
           <div className="min-h-[80px] whitespace-pre-wrap px-3 py-2 font-normal leading-relaxed">
             {tokenize(value.slice(0, revealedLength)).map((tok, i) =>

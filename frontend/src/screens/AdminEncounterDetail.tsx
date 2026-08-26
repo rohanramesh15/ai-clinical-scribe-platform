@@ -87,7 +87,7 @@ export default function AdminEncounterDetail() {
               <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {k}
               </div>
-              <div className="rounded-md border border-border bg-card px-3 py-2">
+              <div className="rounded-lg border border-border bg-card px-3 py-2">
                 <p className="whitespace-pre-wrap text-xs leading-relaxed">
                   {v[k] ? <FormattedText text={v[k]} /> : <span className="text-muted-foreground">—</span>}
                 </p>
