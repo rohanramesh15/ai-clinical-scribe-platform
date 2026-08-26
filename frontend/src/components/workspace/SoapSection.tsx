@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -12,10 +13,21 @@ interface Props {
 }
 
 // One headed, independently-editable SOAP section. Headings are rendered FROM
-// the field — never parsed back out of a blob.
+// the field — never parsed back out of a blob. Height tracks content (auto-
+// grow textarea) rather than filling a fixed grid cell, since sections are
+// now stacked vertically and each should take only as much room as its text.
 export function SoapSection({ title, value, onChange, editable, streaming, missing }: Props) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+
   return (
-    <div className="flex min-h-0 flex-col rounded-md border border-border bg-card">
+    <div className="flex flex-col rounded-md border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border bg-muted/40 px-3 py-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {title}
@@ -31,12 +43,14 @@ export function SoapSection({ title, value, onChange, editable, streaming, missi
         )}
       </div>
       <Textarea
+        ref={ref}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         readOnly={!editable}
         placeholder={editable ? `${title}…` : ""}
+        rows={1}
         className={cn(
-          "min-h-[120px] flex-1 resize-none rounded-none border-0 bg-transparent font-normal leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0",
+          "min-h-[80px] resize-none overflow-hidden rounded-none border-0 bg-transparent font-normal leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0",
           missing && !streaming && "bg-warning/5",
         )}
       />

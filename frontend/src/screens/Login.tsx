@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Activity, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -42,8 +42,7 @@ export default function Login() {
   return (
     <div className="flex h-full items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex animate-fade-up items-center gap-2">
-          <Activity className="h-5 w-5 text-primary" />
+        <div className="mb-6 animate-fade-up">
           <h1 className="text-base font-semibold tracking-tight">Clinical Scribe</h1>
         </div>
         <div className="stagger-1 animate-fade-up rounded-md border border-border bg-card p-6 shadow-sm">

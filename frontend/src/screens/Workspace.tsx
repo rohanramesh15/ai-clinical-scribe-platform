@@ -404,7 +404,7 @@ export default function Workspace() {
                 <Button size="sm" variant="outline" className="h-6 text-xs" onClick={generate}>Retry</Button>
               </div>
             )}
-            <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-4">
+            <div className="flex flex-col gap-4">
               {KEYS.map((k) => (
                 <SoapSection
                   key={k}
