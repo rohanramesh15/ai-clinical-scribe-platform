@@ -14,6 +14,7 @@ import { IcdSearchBar } from "@/components/workspace/IcdSearchBar";
 import { ReauthDialog } from "@/components/workspace/ReauthDialog";
 import { SoapSection } from "@/components/workspace/SoapSection";
 import { VersionDrawer } from "@/components/workspace/VersionDrawer";
+import { cn } from "@/lib/utils";
 
 type GenStatus = "idle" | "streaming" | "done" | "insufficient" | "interrupted" | "error";
 type Sections = { subjective: string; objective: string; assessment: string; plan: string };
@@ -198,6 +199,25 @@ export default function Workspace() {
     }
   }, [encId, transcript, templateId, onEvent, persist]);
 
+  // --- Toolbar auto-hide: slides up out of view on scroll-down, slides back
+  // in on scroll-up (always shown near the top, regardless of direction) ----
+  const [toolbarHidden, setToolbarHidden] = useState(false);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    lastScrollY.current = window.scrollY;
+    function onScroll() {
+      const y = window.scrollY;
+      const delta = y - lastScrollY.current;
+      if (y <= 64) setToolbarHidden(false);
+      else if (delta > 8) setToolbarHidden(true);
+      else if (delta < -8) setToolbarHidden(false);
+      lastScrollY.current = y;
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   // --- Auto-generate when arriving from the intake page ----------------------
   useEffect(() => {
     if (autoGenStarted.current) return;
@@ -284,8 +304,15 @@ export default function Workspace() {
       {/* Workspace toolbar: patient | ICD-10 search | actions. Sticky right
           below TopBar (h-12) so it stays reachable while a long note scrolls —
           the SOAP sections now grow to content height (see SoapSection) and
-          can push well past one viewport. */}
-      <div className="sticky top-12 z-10 flex animate-fade-up items-center gap-4 border-b border-border bg-card px-4 py-2">
+          can push well past one viewport. Slides up out of view on
+          scroll-down and back in on scroll-up (see toolbarHidden above) so
+          it doesn't eat screen space while reading/editing a long note. */}
+      <div
+        className={cn(
+          "sticky top-12 z-10 flex animate-fade-up items-center gap-4 border-b border-border bg-card px-4 py-2 transition-transform duration-200",
+          toolbarHidden && "-translate-y-[200%]",
+        )}
+      >
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm font-semibold">
