@@ -5,6 +5,7 @@ import { api } from "@/api/client";
 import type { AdminEncounterView } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FormattedText } from "@/components/FormattedText";
 import { cn } from "@/lib/utils";
 
 function fmt(ts: string) {
@@ -87,7 +88,7 @@ export default function AdminEncounterDetail() {
                 {k}
               </div>
               <p className="whitespace-pre-wrap px-3 py-2 text-xs leading-relaxed">
-                {v[k] || <span className="text-muted-foreground">—</span>}
+                {v[k] ? <FormattedText text={v[k]} /> : <span className="text-muted-foreground">—</span>}
               </p>
             </RevealSection>
           ))}

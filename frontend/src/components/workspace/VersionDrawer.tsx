@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { FormattedText } from "@/components/FormattedText";
 import { diffWords } from "@/lib/diff";
 import { cn } from "@/lib/utils";
 
@@ -155,7 +156,7 @@ export function VersionDrawer({ encounterId, open, onOpenChange, refreshKey, cur
                       <DiffText before={prev[k]} after={selected[k]} />
                     ) : (
                       <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                        {selected[k] || <span className="text-muted-foreground">—</span>}
+                        {selected[k] ? <FormattedText text={selected[k]} /> : <span className="text-muted-foreground">—</span>}
                       </p>
                     )}
                   </div>
