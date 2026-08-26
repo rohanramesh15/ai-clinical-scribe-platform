@@ -83,11 +83,11 @@ export default function AdminEncounterDetail() {
         <div className="space-y-3">
           {!v && <p className="text-sm text-muted-foreground">No finalized note for this encounter.</p>}
           {v && (["subjective", "objective", "assessment", "plan"] as const).map((k) => (
-            <RevealSection key={k} className="rounded-md border border-border bg-card">
-              <div className="border-b border-border bg-muted/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <RevealSection key={k}>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {k}
               </div>
-              <p className="whitespace-pre-wrap px-3 py-2 text-xs leading-relaxed">
+              <p className="whitespace-pre-wrap text-xs leading-relaxed">
                 {v[k] ? <FormattedText text={v[k]} /> : <span className="text-muted-foreground">—</span>}
               </p>
             </RevealSection>
