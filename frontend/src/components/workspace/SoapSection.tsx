@@ -78,31 +78,33 @@ export function SoapSection({ title, value, onChange, editable, streaming, missi
           <span className="text-[10px] font-medium text-warning">not generated</span>
         )}
       </div>
-      {streaming ? (
-        <div className="min-h-[80px] whitespace-pre-wrap font-normal leading-relaxed">
-          {tokenize(value.slice(0, revealedLength)).map((tok, i) =>
-            tok.word ? (
-              <span key={i} className="inline-block animate-fade-up">{tok.text}</span>
-            ) : (
-              <span key={i}>{tok.text}</span>
-            ),
-          )}
-          <span className="ml-0.5 inline-block h-[1em] w-[2px] animate-pulse bg-primary align-text-bottom" />
-        </div>
-      ) : (
-        <Textarea
-          ref={ref}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          readOnly={!editable}
-          placeholder={editable ? `${title}…` : ""}
-          rows={1}
-          className={cn(
-            "min-h-[80px] resize-none overflow-hidden rounded-none border-0 bg-transparent px-0 py-0 font-normal leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0",
-            missing && "bg-warning/5",
-          )}
-        />
-      )}
+      <div className="rounded-md border border-border bg-card">
+        {streaming ? (
+          <div className="min-h-[80px] whitespace-pre-wrap px-3 py-2 font-normal leading-relaxed">
+            {tokenize(value.slice(0, revealedLength)).map((tok, i) =>
+              tok.word ? (
+                <span key={i} className="inline-block animate-fade-up">{tok.text}</span>
+              ) : (
+                <span key={i}>{tok.text}</span>
+              ),
+            )}
+            <span className="ml-0.5 inline-block h-[1em] w-[2px] animate-pulse bg-primary align-text-bottom" />
+          </div>
+        ) : (
+          <Textarea
+            ref={ref}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            readOnly={!editable}
+            placeholder={editable ? `${title}…` : ""}
+            rows={1}
+            className={cn(
+              "min-h-[80px] resize-none overflow-hidden rounded-none border-0 bg-transparent px-3 py-2 font-normal leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0",
+              missing && "bg-warning/5",
+            )}
+          />
+        )}
+      </div>
     </div>
   );
 }
