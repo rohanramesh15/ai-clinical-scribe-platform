@@ -36,6 +36,13 @@ DEMO_PROVIDERS = [
     ("admin@northclinic.com", Role.admin),
 ]
 
+# Per-account generation rate limits (see Provider.max_generations_per_ip_per_day
+# / services/rate_limit.py). Applied on both create and re-seed of an existing
+# provider, so running the seed again on a live DB is how you change these.
+RATE_LIMITS: dict[str, int] = {
+    "dr.santos@northclinic.com": 2,
+}
+
 TEMPLATES = [
     {
         "name": "New Patient Evaluation",
@@ -97,12 +104,18 @@ async def _seed_providers(session: AsyncSession) -> dict[str, int]:
                 select(Provider).where(Provider.email == email)
             )
         ).scalar_one_or_none()
+        rate_limit = RATE_LIMITS.get(email)
         if existing:
             ids[email] = existing.id
+            if existing.max_generations_per_ip_per_day != rate_limit:
+                existing.max_generations_per_ip_per_day = rate_limit
             continue
         password = os.environ.get("SEED_DEMO_PASSWORD") or pysecrets.token_urlsafe(9)
         provider = Provider(
-            email=email, password_hash=hash_password(password), role=role
+            email=email,
+            password_hash=hash_password(password),
+            role=role,
+            max_generations_per_ip_per_day=rate_limit,
         )
         session.add(provider)
         await session.flush()

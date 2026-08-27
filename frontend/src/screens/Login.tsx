@@ -86,6 +86,17 @@ export default function Login() {
               Sign in
             </Button>
           </form>
+
+          <div className="mt-4 text-center">
+            <a
+              href="https://docs.google.com/document/d/16BpKsGSfEI7JwjOqfbckTL11aB9Gi_kk5SmyB87sPGE/edit?usp=sharing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+            >
+              Login credentials &amp; demo instructions
+            </a>
+          </div>
         </div>
       </div>
     </div>
