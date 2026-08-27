@@ -47,7 +47,8 @@ from ..schemas import (
     VersionListItem,
 )
 from ..services.audit import write_audit
-from ..services.generation import run_generation_stream
+from ..services.generation import MIN_CLINICAL_CHARS, run_generation_stream
+from ..services.rate_limit import check_and_increment_generation_limit
 from ..services.patients import resolve_or_create_patient
 from ..services.redflags import scan_red_flags
 from ..services.versions import StaleEditError, save_version
@@ -302,6 +303,13 @@ async def generate_note(
 
     transcript = body.transcript if body.transcript is not None else (enc.transcript or "")
     template_id = body.template_id if body.template_id is not None else enc.template_id
+
+    # Same threshold the generation service itself guards on (services/generation.py)
+    # — below it there's no real generation attempt (just the "insufficient" sentinel),
+    # so it shouldn't consume a rate-limited account's daily budget.
+    if len(transcript) >= MIN_CLINICAL_CHARS:
+        client_ip = request.client.host if request.client else None
+        await check_and_increment_generation_limit(db, provider, client_ip)
 
     # Template body is read FRESH at generation time (not cached on the client),
     # so an admin's edit takes effect on the very next generation.

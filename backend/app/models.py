@@ -89,6 +89,10 @@ class Provider(Base):
         default=Role.provider,
     )
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    # NULL (default) = unlimited. When set, caps note generations per calendar
+    # day (UTC) for each distinct client IP this account is used from — see
+    # services/rate_limit.py. Opt-in per account, not a global policy.
+    max_generations_per_ip_per_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()
     # unique(lower(email)) -> functional index in migration
@@ -241,6 +245,25 @@ class Session(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ip: Mapped[str | None] = mapped_column(Text, nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class GenerationRateLimit(Base):
+    """Per (provider, ip, day) counter of note generations, checked when
+    Provider.max_generations_per_ip_per_day is set. NULL on the provider (the
+    default for everyone) means unlimited — this table stays empty for them."""
+
+    __tablename__ = "generation_rate_limits"
+
+    id: Mapped[int] = _pk()
+    provider_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("providers.id"), nullable=False
+    )
+    ip: Mapped[str] = mapped_column(Text, nullable=False)
+    day: Mapped[date] = mapped_column(Date, nullable=False)
+    count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+    # unique(provider_id, ip, day) -> defined in the migration
 
 
 class AuditLog(Base):

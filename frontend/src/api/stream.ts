@@ -34,6 +34,16 @@ export async function streamGeneration(
 
   if (res.status === 401) return onEvent({ type: "error", message: "unauthorized" });
   if (res.status === 403) return onEvent({ type: "error", message: "forbidden" });
+  if (res.status === 429) {
+    let detail = "Generation rate limit reached — try again later.";
+    try {
+      const body = await res.json();
+      if (typeof body?.detail?.message === "string") detail = body.detail.message;
+    } catch {
+      /* use the fallback message */
+    }
+    return onEvent({ type: "error", message: "rate_limited", detail });
+  }
   if (!res.ok || !res.body) return onEvent({ type: "error", message: `http_${res.status}` });
 
   const reader = res.body.getReader();
