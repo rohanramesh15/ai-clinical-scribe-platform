@@ -38,7 +38,13 @@ export function SoapSection({ title, value, onChange, editable, streaming, missi
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
-  }, [value]);
+    // Also re-run on `streaming`: the Textarea only exists in the DOM when
+    // streaming is false (the streaming branch renders a plain div instead),
+    // so it mounts fresh exactly when streaming flips to false — at that
+    // moment `value` is already fully set from the last delta and doesn't
+    // change again, so a [value]-only dependency would never re-measure the
+    // newly-mounted element (ref was null on every earlier run).
+  }, [value, streaming]);
 
   // Paced word-by-word reveal while streaming, so fast/bursty SSE chunks
   // still read as text being written rather than dumped in all at once.
